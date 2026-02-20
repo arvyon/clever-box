@@ -217,15 +217,11 @@ export const PropertiesPanel = ({ templates }) => {
                   data-testid="prop-hero-subtitle"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Background Image URL</Label>
-                <Input
-                  value={props.backgroundImage || ''}
-                  onChange={(e) => handlePropChange('backgroundImage', e.target.value)}
-                  placeholder="https://..."
-                  data-testid="prop-hero-bg"
-                />
-              </div>
+              <ImageUpload
+                label="Background Image"
+                value={props.backgroundImage || ''}
+                onChange={(url) => handlePropChange('backgroundImage', url)}
+              />
               <div className="space-y-2">
                 <Label>Button Text</Label>
                 <Input
@@ -248,15 +244,11 @@ export const PropertiesPanel = ({ templates }) => {
           {/* Image properties */}
           {component.type === 'image' && (
             <>
-              <div className="space-y-2">
-                <Label>Image URL</Label>
-                <Input
-                  value={props.src || ''}
-                  onChange={(e) => handlePropChange('src', e.target.value)}
-                  placeholder="https://..."
-                  data-testid="prop-image-src"
-                />
-              </div>
+              <ImageUpload
+                label="Image"
+                value={props.src || ''}
+                onChange={(url) => handlePropChange('src', url)}
+              />
               <div className="space-y-2">
                 <Label>Alt Text</Label>
                 <Input
