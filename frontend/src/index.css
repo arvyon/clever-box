@@ -119,20 +119,27 @@ code {
 }
 
 .drop-target {
-  background-color: rgba(29, 78, 216, 0.1);
-  border: 2px dashed var(--brand-primary);
-  border-radius: 8px;
+  background-color: rgba(29, 78, 216, 0.05);
+  border: 3px dashed var(--brand-primary);
+  border-radius: 12px;
+  animation: pulse-border 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-border {
+  0%, 100% { border-color: rgba(29, 78, 216, 0.4); }
+  50% { border-color: rgba(29, 78, 216, 1); }
 }
 
 .component-hover {
   outline: 2px solid var(--brand-primary);
   outline-offset: 2px;
+  cursor: pointer;
 }
 
 .component-selected {
-  outline: 2px solid var(--brand-primary);
+  outline: 3px solid var(--brand-primary);
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.2);
+  box-shadow: 0 0 0 6px rgba(29, 78, 216, 0.15);
 }
 
 /* Inline Editing */
