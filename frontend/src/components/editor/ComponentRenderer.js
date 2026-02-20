@@ -1,7 +1,17 @@
-import React, { useState } from 'react';
-import { useEditor } from '../../context/EditorContext';
+import React, { useState, createContext, useContext } from 'react';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
+
+// Safe hook to use editor context - returns null if not in provider
+const EditorContext = createContext(null);
+const useEditorSafe = () => {
+  try {
+    const { useEditor } = require('../../context/EditorContext');
+    return useEditor();
+  } catch {
+    return null;
+  }
+};
 import { 
   GripVertical, 
   Trash2, 
