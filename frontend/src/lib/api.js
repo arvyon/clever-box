@@ -84,6 +84,27 @@ export const getComponentTemplates = async () => {
   return response.data;
 };
 
+// Themes
+export const getThemes = async () => {
+  const response = await api.get('/themes');
+  return response.data;
+};
+
+export const updateSchoolTheme = async (schoolId, themeData) => {
+  const response = await api.put(`/schools/${schoolId}/theme`, themeData);
+  return response.data;
+};
+
+// Image Upload
+export const uploadImage = async (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await api.post('/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+  return response.data;
+};
+
 // Seed
 export const seedData = async () => {
   const response = await api.post('/seed');
