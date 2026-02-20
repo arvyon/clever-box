@@ -1,0 +1,178 @@
+{
+  "design_system": {
+    "identity": {
+      "name": "CleverCampus CMS",
+      "persona": "The Modern Headmaster",
+      "tone": "Professional, Warm, Organized, Aspirational",
+      "keywords": ["Trust", "Growth", "Community", "Excellence"]
+    },
+    "typography": {
+      "headings": {
+        "family": "Outfit, sans-serif",
+        "weights": ["500", "700"],
+        "usage": "Use for all section headers, hero titles, and widget labels. Tight tracking (-0.02em) for sizes over 32px."
+      },
+      "body": {
+        "family": "DM Sans, sans-serif",
+        "weights": ["400", "500"],
+        "usage": "Use for all paragraph text, UI labels, and data inputs."
+      },
+      "mono": {
+        "family": "JetBrains Mono, monospace",
+        "usage": "Use for code snippets or technical settings only."
+      }
+    },
+    "colors": {
+      "palette": {
+        "primary": {
+          "DEFAULT": "#0F172A",
+          "foreground": "#F8FAFC",
+          "hover": "#1E293B",
+          "active": "#020617"
+        },
+        "brand": {
+          "DEFAULT": "#1D4ED8",
+          "light": "#60A5FA",
+          "dark": "#1E3A8A",
+          "accent": "#FBBF24"
+        },
+        "editor": {
+          "sidebar_bg": "#FFFFFF",
+          "canvas_bg": "#F1F5F9",
+          "panel_bg": "#FFFFFF",
+          "border": "#E2E8F0"
+        },
+        "status": {
+          "success": "#10B981",
+          "warning": "#F59E0B",
+          "error": "#EF4444",
+          "info": "#3B82F6"
+        }
+      },
+      "gradients": {
+        "hero": "linear-gradient(135deg, #1E3A8A 0%, #1D4ED8 100%)",
+        "accent": "linear-gradient(45deg, #FBBF24 0%, #F59E0B 100%)"
+      }
+    },
+    "spacing": {
+      "container_padding": "p-6 md:p-12 lg:p-16",
+      "section_gap": "gap-12 md:gap-24",
+      "widget_gap": "gap-4"
+    },
+    "shadows": {
+      "card": "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+      "floating": "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+      "dragged": "0 25px 50px -12px rgba(0, 0, 0, 0.25)"
+    },
+    "border_radius": {
+      "button": "rounded-md",
+      "card": "rounded-xl",
+      "input": "rounded-lg"
+    }
+  },
+  "layout_strategies": {
+    "cms_editor": {
+      "structure": "Fixed Sidebar (Left) + Flexible Canvas (Center) + Property Panel (Right)",
+      "left_sidebar": {
+        "width": "w-72",
+        "bg": "bg-white",
+        "border": "border-r border-border",
+        "behavior": "Scrollable list of draggable widgets"
+      },
+      "canvas": {
+        "bg": "bg-slate-100",
+        "behavior": "Infinite scroll vertical, centered content area with device width constraints"
+      },
+      "right_sidebar": {
+        "width": "w-80",
+        "bg": "bg-white",
+        "border": "border-l border-border",
+        "behavior": "Context-aware settings for selected element"
+      }
+    },
+    "school_template": {
+      "hero": {
+        "type": "Full Width with Overlay",
+        "alignment": "Left aligned text, large background image"
+      },
+      "grid_system": "Bento Grid (Auto-fit columns)",
+      "news_section": "Card-based grid with hover lift effect"
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2",
+      "secondary": "bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 py-2",
+      "ghost": "hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2",
+      "editor_widget": "flex flex-col items-center justify-center p-4 border border-border rounded-lg hover:border-brand hover:bg-brand/5 transition-all cursor-grab active:cursor-grabbing"
+    },
+    "inputs": {
+      "default": "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+    },
+    "cards": {
+      "school_news": "bg-white rounded-xl border border-border overflow-hidden hover:shadow-lg transition-all duration-300 group",
+      "editor_panel": "bg-white p-4 rounded-lg border border-border"
+    }
+  },
+  "motion": {
+    "drag_drop": {
+      "lift": "scale-105 rotate-2 shadow-2xl",
+      "drop": "scale-100 rotate-0 shadow-none transition-all duration-200"
+    },
+    "hover": "transition-all duration-200 ease-in-out",
+    "page_transition": "animate-in fade-in slide-in-from-bottom-4 duration-500"
+  },
+  "image_urls": {
+    "hero_bg": [
+      "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=2070&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1562774053-701939374585?q=80&w=2086&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?q=80&w=2070&auto=format&fit=crop"
+    ],
+    "students": [
+      "https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=2132&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1427504494785-3a9ca28497b1?q=80&w=2070&auto=format&fit=crop"
+    ],
+    "teachers": [
+      "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1976&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=1974&auto=format&fit=crop"
+    ],
+    "campus": [
+      "https://images.unsplash.com/photo-1592280771884-f25f2b8423f5?q=80&w=1974&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1564981797816-1043664bf78d?q=80&w=1974&auto=format&fit=crop"
+    ]
+  },
+  "instructions_to_main_agent": {
+    "setup": "Install 'lucide-react' for icons, '@dnd-kit/core' '@dnd-kit/sortable' for drag-and-drop, 'clsx' and 'tailwind-merge' for class handling.",
+    "critical_rules": [
+      "DO NOT use generic gradients. Use solid, authoritative colors.",
+      "Ensure the CMS editor has a distinct visual separation from the website preview canvas.",
+      "The 'Canvas' area must simulate an iframe or a distinct container with specific dimensions (Desktop/Tablet/Mobile).",
+      "Implement 'Inline Editing' by making text elements 'contentEditable' or replacing them with inputs on click.",
+      "Use 'Sidebar' components for the widget library. Widgets should be: Text, Image, Button, Hero, Features, Gallery."
+    ],
+    "file_structure_hints": {
+      "editor_layout": "src/layouts/EditorLayout.js",
+      "widgets": "src/components/editor/widgets/",
+      "preview": "src/components/editor/Canvas.js"
+    }
+  },
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "You tend to converge toward generic, 'on distribution' outputs. In frontend design, this creates what users call the 'AI slop' aesthetic. Avoid this: make creative, distinctive frontends that surprise and delight.",
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy",
+    "Use glass-morphism effects with backdrop filters (12-24px blur)",
+    "You MUST NOT apply universal transition. Eg: 'transition: all'. This results in breaking transforms. Always add transitions for specific interactive elements like button, input excluding transforms",
+    "You MUST NOT center align the app container, ie do not add '.App { text-align: center; }' in the css file. This disrupts the human natural reading flow of text",
+    "Always use modern button styles like pill-shaped, or sharp button with interaction animations & color relevant to the app style",
+    "NEVER: use AI assistant Emoji characters like 🤖🧠💭💡🔮🎯📚🎭🎬🎪🎉🎊🎁🎀🎂🍰🎈🎨🎰💰💵💳🏦💎🪙💸🤑📊📈📉💹🔢🏆🥇 etc for icons.",
+    "Every interaction needs micro-animations - hover states, transitions, parallax effects, and entrance animations. Static = dead.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Subtle grain textures, noise overlays, custom cursors, selection states, and loading animations: separates good from extraordinary.",
+    "Main agent relies on these image URLs. Missing categories (especially sponsor logos) = main agent will use placeholder text which is FORBIDDEN",
+    "Prioritize using pre-existing components from src/components/ui when applicable",
+    "Components MUST use named exports (export const ComponentName = ...)",
+    "Pages MUST use default exports (export default function PageName() {...})",
+    "Use 'sonner' for toasts"
+  ]
+}
