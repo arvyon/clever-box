@@ -160,11 +160,22 @@ function EditorContent() {
         )}
       </div>
       
-      {/* Drag Overlay */}
-      <DragOverlay>
+      {/* Drag Overlay - Shows preview while dragging */}
+      <DragOverlay dropAnimation={{
+        duration: 200,
+        easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)',
+      }}>
         {activeWidget && (
-          <div className="drag-overlay">
-            <span className="text-blue-600 font-medium">{activeWidget.name}</span>
+          <div className="bg-white border-2 border-blue-500 rounded-xl p-4 shadow-2xl flex items-center gap-3 min-w-[200px]">
+            <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center">
+              {iconMap[activeWidget.icon] && React.createElement(iconMap[activeWidget.icon], {
+                className: "w-6 h-6 text-white"
+              })}
+            </div>
+            <div>
+              <p className="font-semibold text-slate-900">{activeWidget.name}</p>
+              <p className="text-xs text-blue-600">Drop on canvas to add</p>
+            </div>
           </div>
         )}
       </DragOverlay>
