@@ -1,11 +1,60 @@
 import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useEditor } from '../../context/EditorContext';
 import { ComponentRenderer } from './ComponentRenderer';
 import { cn } from '../../lib/utils';
-import { Plus, MousePointer, ArrowDown } from 'lucide-react';
+import { Plus, MousePointer, ArrowDown, GripVertical } from 'lucide-react';
 
-export const EditorCanvas = ({ templates }) => {
+// Sortable Component Wrapper
+const SortableComponent = ({ component, isSelected, onClick, onUpdate, onRemove, onDuplicate }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: component.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    position: 'relative',
+    zIndex: isDragging ? 1000 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className={cn(isDragging && "ring-2 ring-blue-400 rounded-lg")}>
+      {/* Drag Handle */}
+      <div 
+        className={cn(
+          "absolute left-0 top-0 bottom-0 w-8 flex items-center justify-center cursor-grab active:cursor-grabbing z-20 transition-opacity",
+          isSelected ? "opacity-100" : "opacity-0 hover:opacity-100"
+        )}
+        {...attributes}
+        {...listeners}
+      >
+        <div className="bg-white/90 backdrop-blur rounded-lg shadow-md p-1.5">
+          <GripVertical className="w-5 h-5 text-slate-400" />
+        </div>
+      </div>
+      
+      <ComponentRenderer
+        component={component}
+        isSelected={isSelected}
+        onClick={onClick}
+        onUpdate={onUpdate}
+        onRemove={onRemove}
+        onDuplicate={onDuplicate}
+      />
+    </div>
+  );
+};
+
+export const EditorCanvas = ({ templates, school }) => {
   const { 
     components, 
     deviceView, 
@@ -25,6 +74,12 @@ export const EditorCanvas = ({ templates }) => {
     mobile: 'w-[375px]',
   };
 
+  // Get theme colors
+  const themeColors = {
+    primary: school?.primary_color || '#1D4ED8',
+    secondary: school?.secondary_color || '#FBBF24',
+  };
+
   return (
     <div 
       className="editor-canvas custom-scrollbar"
@@ -34,11 +89,15 @@ export const EditorCanvas = ({ templates }) => {
       <div 
         ref={setNodeRef}
         className={cn(
-          "bg-white rounded-xl shadow-lg min-h-[800px] mx-auto",
+          "bg-white rounded-xl shadow-lg min-h-[800px] mx-auto relative",
           deviceClasses[deviceView],
           isOver && "ring-4 ring-blue-400 ring-offset-4 bg-blue-50/30"
         )}
-        style={{ marginBottom: '100px' }}
+        style={{ 
+          marginBottom: '100px',
+          '--theme-primary': themeColors.primary,
+          '--theme-secondary': themeColors.secondary,
+        }}
         onClick={(e) => {
           if (e.target === e.currentTarget) {
             setSelectedComponent(null);
@@ -85,13 +144,18 @@ export const EditorCanvas = ({ templates }) => {
           </div>
         ) : (
           <div className="pb-20">
+            {/* Reorder Instructions */}
+            <div className="px-4 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 flex items-center gap-2 text-sm text-blue-600">
+              <GripVertical className="w-4 h-4" />
+              <span>Drag the handle on the left to reorder components</span>
+            </div>
+            
             {sortedComponents.map((component, index) => (
-              <ComponentRenderer
+              <SortableComponent
                 key={component.id}
                 component={component}
                 isSelected={selectedComponent === component.id}
                 onClick={() => setSelectedComponent(component.id)}
-                index={index}
                 onUpdate={updateComponent}
                 onRemove={removeComponent}
                 onDuplicate={duplicateComponent}
