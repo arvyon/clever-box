@@ -1,17 +1,6 @@
-import React, { useState, createContext, useContext } from 'react';
+import React, { useState } from 'react';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
-
-// Safe hook to use editor context - returns null if not in provider
-const EditorContext = createContext(null);
-const useEditorSafe = () => {
-  try {
-    const { useEditor } = require('../../context/EditorContext');
-    return useEditor();
-  } catch {
-    return null;
-  }
-};
 import { 
   GripVertical, 
   Trash2, 
@@ -397,7 +386,7 @@ const StaffComponent = ({ props, isPreview, onInlineEdit }) => {
 
 // Contact Component
 const ContactComponent = ({ props, isPreview, onInlineEdit }) => {
-  const { title, address, phone, email, showMap } = props;
+  const { title, address, phone, email } = props;
 
   return (
     <div className="px-6 py-16 bg-white" id="contact">
@@ -521,23 +510,19 @@ const componentMap = {
   spacer: SpacerComponent,
 };
 
-// Main Component Renderer
-export const ComponentRenderer = ({ component, isSelected, onClick, isPreview, index }) => {
+// Main Component Renderer - accepts optional editor functions
+export const ComponentRenderer = ({ 
+  component, 
+  isSelected, 
+  onClick, 
+  isPreview = false, 
+  index,
+  // These props are passed from EditorCanvas when in edit mode
+  onUpdate,
+  onRemove,
+  onDuplicate 
+}) => {
   const [isHovered, setIsHovered] = useState(false);
-  
-  // Only use editor context when not in preview mode
-  let updateComponent, removeComponent, duplicateComponent;
-  if (!isPreview) {
-    try {
-      const editorContext = require('../../context/EditorContext');
-      const editor = editorContext.useEditor();
-      updateComponent = editor.updateComponent;
-      removeComponent = editor.removeComponent;
-      duplicateComponent = editor.duplicateComponent;
-    } catch (e) {
-      // In preview mode, these won't be available
-    }
-  }
 
   const Component = componentMap[component.type];
   
@@ -550,11 +535,12 @@ export const ComponentRenderer = ({ component, isSelected, onClick, isPreview, i
   }
 
   const handleInlineEdit = (key, value) => {
-    if (updateComponent) {
-      updateComponent(component.id, { [key]: value });
+    if (onUpdate) {
+      onUpdate(component.id, { [key]: value });
     }
   };
 
+  // Preview mode - just render the component without editing UI
   if (isPreview) {
     return <Component props={component.props} isPreview={true} />;
   }
@@ -575,7 +561,7 @@ export const ComponentRenderer = ({ component, isSelected, onClick, isPreview, i
       data-testid={`component-${component.id}`}
     >
       {/* Component Actions */}
-      {(isHovered || isSelected) && duplicateComponent && removeComponent && (
+      {(isHovered || isSelected) && onDuplicate && onRemove && (
         <div className="component-actions">
           <Button
             variant="secondary"
@@ -583,7 +569,7 @@ export const ComponentRenderer = ({ component, isSelected, onClick, isPreview, i
             className="h-8 w-8 p-0 bg-white shadow-md"
             onClick={(e) => {
               e.stopPropagation();
-              duplicateComponent(component.id);
+              onDuplicate(component.id);
             }}
           >
             <Copy className="w-4 h-4" />
@@ -594,7 +580,7 @@ export const ComponentRenderer = ({ component, isSelected, onClick, isPreview, i
             className="h-8 w-8 p-0 shadow-md"
             onClick={(e) => {
               e.stopPropagation();
-              removeComponent(component.id);
+              onRemove(component.id);
             }}
           >
             <Trash2 className="w-4 h-4" />
