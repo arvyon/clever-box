@@ -1,9 +1,12 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File
+from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import base64
+import shutil
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Dict, Any
@@ -11,6 +14,9 @@ import uuid
 from datetime import datetime, timezone
 
 ROOT_DIR = Path(__file__).parent
+UPLOAD_DIR = ROOT_DIR / "uploads"
+UPLOAD_DIR.mkdir(exist_ok=True)
+
 load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
@@ -20,6 +26,9 @@ db = client[os.environ['DB_NAME']]
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
+
+# Serve uploaded files
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 # ============ MODELS ============
 
@@ -37,6 +46,7 @@ class PageData(BaseModel):
     slug: str
     components: List[ComponentData] = []
     is_published: bool = False
+    theme: str = "default"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -48,6 +58,7 @@ class School(BaseModel):
     logo_url: Optional[str] = None
     primary_color: str = "#1D4ED8"
     secondary_color: str = "#FBBF24"
+    theme: str = "default"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class SchoolCreate(BaseModel):
