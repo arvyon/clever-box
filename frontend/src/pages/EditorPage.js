@@ -8,6 +8,17 @@ import { PropertiesPanel } from '../components/editor/PropertiesPanel';
 import { EditorToolbar } from '../components/editor/EditorToolbar';
 import { DndContext, DragOverlay, pointerWithin } from '@dnd-kit/core';
 import { toast } from 'sonner';
+import { 
+  Image, Type, Heading, MousePointerClick, Grid3X3, Images, 
+  Bell, Calendar, Users, Mail, PanelBottom, SeparatorHorizontal 
+} from 'lucide-react';
+
+const iconMap = {
+  Image: Image, Type: Type, Heading: Heading, ImageIcon: Image,
+  MousePointerClick: MousePointerClick, Grid3X3: Grid3X3, Images: Images,
+  Bell: Bell, Calendar: Calendar, Users: Users, Mail: Mail,
+  PanelBottom: PanelBottom, SeparatorHorizontal: SeparatorHorizontal,
+};
 
 function EditorContent() {
   const { schoolId, pageId } = useParams();
