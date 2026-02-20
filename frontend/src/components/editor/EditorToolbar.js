@@ -8,20 +8,12 @@ import {
   Smartphone, 
   Save, 
   Eye, 
-  Undo, 
-  Redo,
   Upload,
-  ChevronDown
+  Palette
 } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../ui/dropdown-menu';
 import { cn } from '../../lib/utils';
 
-export const EditorToolbar = ({ school, page, onSave, onPublish, saving, hasChanges }) => {
+export const EditorToolbar = ({ school, page, onSave, onPublish, saving, hasChanges, onThemeClick }) => {
   const navigate = useNavigate();
   const { schoolId, pageId } = useParams();
   const { deviceView, setDeviceView } = useEditor();
@@ -70,6 +62,17 @@ export const EditorToolbar = ({ school, page, onSave, onPublish, saving, hasChan
 
       {/* Right: Actions */}
       <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onThemeClick}
+          className="gap-2"
+          data-testid="theme-btn"
+        >
+          <Palette className="w-4 h-4" />
+          <span className="hidden md:inline">Theme</span>
+        </Button>
+        
         <Button
           variant="outline"
           size="sm"
