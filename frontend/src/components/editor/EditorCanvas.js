@@ -6,7 +6,15 @@ import { cn } from '../../lib/utils';
 import { Plus, MousePointer } from 'lucide-react';
 
 export const EditorCanvas = ({ templates }) => {
-  const { components, deviceView, selectedComponent, setSelectedComponent } = useEditor();
+  const { 
+    components, 
+    deviceView, 
+    selectedComponent, 
+    setSelectedComponent,
+    updateComponent,
+    removeComponent,
+    duplicateComponent
+  } = useEditor();
   const { setNodeRef, isOver } = useDroppable({ id: 'canvas-drop-zone' });
 
   const sortedComponents = [...components].sort((a, b) => a.order - b.order);
@@ -55,6 +63,9 @@ export const EditorCanvas = ({ templates }) => {
                 isSelected={selectedComponent === component.id}
                 onClick={() => setSelectedComponent(component.id)}
                 index={index}
+                onUpdate={updateComponent}
+                onRemove={removeComponent}
+                onDuplicate={duplicateComponent}
               />
             ))}
             
