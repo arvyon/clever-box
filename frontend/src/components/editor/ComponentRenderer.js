@@ -523,8 +523,21 @@ const componentMap = {
 
 // Main Component Renderer
 export const ComponentRenderer = ({ component, isSelected, onClick, isPreview, index }) => {
-  const { updateComponent, removeComponent, duplicateComponent } = useEditor();
   const [isHovered, setIsHovered] = useState(false);
+  
+  // Only use editor context when not in preview mode
+  let updateComponent, removeComponent, duplicateComponent;
+  if (!isPreview) {
+    try {
+      const editorContext = require('../../context/EditorContext');
+      const editor = editorContext.useEditor();
+      updateComponent = editor.updateComponent;
+      removeComponent = editor.removeComponent;
+      duplicateComponent = editor.duplicateComponent;
+    } catch (e) {
+      // In preview mode, these won't be available
+    }
+  }
 
   const Component = componentMap[component.type];
   
@@ -537,7 +550,9 @@ export const ComponentRenderer = ({ component, isSelected, onClick, isPreview, i
   }
 
   const handleInlineEdit = (key, value) => {
-    updateComponent(component.id, { [key]: value });
+    if (updateComponent) {
+      updateComponent(component.id, { [key]: value });
+    }
   };
 
   if (isPreview) {
