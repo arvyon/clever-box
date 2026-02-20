@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { useEditor } from '../../context/EditorContext';
+import { uploadImage } from '../../lib/api';
 import { ScrollArea } from '../ui/scroll-area';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -24,9 +25,71 @@ import {
   AlignCenter,
   AlignRight,
   Plus,
-  Minus
+  Minus,
+  Upload,
+  Loader2
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { toast } from 'sonner';
+
+// Image Upload Component
+const ImageUpload = ({ value, onChange, label }) => {
+  const fileInputRef = useRef(null);
+  const [uploading, setUploading] = React.useState(false);
+
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const result = await uploadImage(file);
+      const backendUrl = process.env.REACT_APP_BACKEND_URL;
+      onChange(`${backendUrl}${result.url}`);
+      toast.success('Image uploaded!');
+    } catch (err) {
+      toast.error('Failed to upload image');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <div className="flex gap-2">
+        <Input
+          value={value || ''}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Image URL or upload..."
+          className="flex-1"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className="px-3"
+        >
+          {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+        </Button>
+      </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleUpload}
+        className="hidden"
+      />
+      {value && (
+        <div className="mt-2 rounded-lg overflow-hidden border border-slate-200">
+          <img src={value} alt="Preview" className="w-full h-24 object-cover" />
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const PropertiesPanel = ({ templates }) => {
   const { 
