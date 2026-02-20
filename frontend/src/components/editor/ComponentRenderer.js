@@ -575,7 +575,7 @@ export const ComponentRenderer = ({ component, isSelected, onClick, isPreview, i
       data-testid={`component-${component.id}`}
     >
       {/* Component Actions */}
-      {(isHovered || isSelected) && (
+      {(isHovered || isSelected) && duplicateComponent && removeComponent && (
         <div className="component-actions">
           <Button
             variant="secondary"
