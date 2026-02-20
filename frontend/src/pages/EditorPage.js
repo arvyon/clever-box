@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { EditorProvider, useEditor } from '../context/EditorContext';
-import { getPage, getSchool, updatePage, getComponentTemplates } from '../lib/api';
+import { getPage, getSchool, updatePage, getComponentTemplates, getThemes, updateSchoolTheme, uploadImage } from '../lib/api';
 import { WidgetsSidebar } from '../components/editor/WidgetsSidebar';
 import { EditorCanvas } from '../components/editor/EditorCanvas';
 import { PropertiesPanel } from '../components/editor/PropertiesPanel';
 import { EditorToolbar } from '../components/editor/EditorToolbar';
-import { DndContext, DragOverlay, pointerWithin } from '@dnd-kit/core';
+import { ThemeSelector } from '../components/editor/ThemeSelector';
+import { DndContext, DragOverlay, pointerWithin, closestCenter } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { toast } from 'sonner';
 import { 
   Image, Type, Heading, MousePointerClick, Grid3X3, Images, 
@@ -27,6 +29,7 @@ function EditorContent() {
     components, 
     loadComponents, 
     addComponent, 
+    moveComponent,
     selectedComponent,
     setHasChanges,
     hasChanges 
@@ -35,9 +38,12 @@ function EditorContent() {
   const [school, setSchool] = useState(null);
   const [page, setPage] = useState(null);
   const [templates, setTemplates] = useState({ widgets: [], categories: [] });
+  const [themes, setThemes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeWidget, setActiveWidget] = useState(null);
+  const [activeId, setActiveId] = useState(null);
+  const [showThemeSelector, setShowThemeSelector] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -46,15 +52,17 @@ function EditorContent() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [schoolData, pageData, templatesData] = await Promise.all([
+      const [schoolData, pageData, templatesData, themesData] = await Promise.all([
         getSchool(schoolId),
         getPage(pageId),
-        getComponentTemplates()
+        getComponentTemplates(),
+        getThemes()
       ]);
       
       setSchool(schoolData);
       setPage(pageData);
       setTemplates(templatesData);
+      setThemes(themesData.themes || []);
       loadComponents(pageData.components || []);
     } catch (err) {
       console.error('Failed to load editor data:', err);
@@ -96,23 +104,67 @@ function EditorContent() {
     }
   }, [pageId, components, setHasChanges]);
 
+  const handleThemeChange = async (themeId) => {
+    const theme = themes.find(t => t.id === themeId);
+    if (!theme || !schoolId) return;
+    
+    try {
+      await updateSchoolTheme(schoolId, {
+        theme: themeId,
+        primary_color: theme.colors.primary,
+        secondary_color: theme.colors.secondary
+      });
+      setSchool(prev => ({
+        ...prev,
+        theme: themeId,
+        primary_color: theme.colors.primary,
+        secondary_color: theme.colors.secondary
+      }));
+      toast.success(`Theme changed to ${theme.name}`);
+      setShowThemeSelector(false);
+    } catch (err) {
+      toast.error('Failed to update theme');
+    }
+  };
+
   const handleDragStart = (event) => {
     const { active } = event;
+    
+    // Check if it's a widget from sidebar
     const widget = templates.widgets.find(w => w.type === active.id);
     if (widget) {
       setActiveWidget(widget);
+      setActiveId(null);
+    } else {
+      // It's a component being reordered
+      setActiveWidget(null);
+      setActiveId(active.id);
     }
   };
 
   const handleDragEnd = (event) => {
     const { active, over } = event;
     setActiveWidget(null);
+    setActiveId(null);
     
-    if (over && over.id === 'canvas-drop-zone') {
-      const widget = templates.widgets.find(w => w.type === active.id);
-      if (widget) {
-        addComponent(widget.type, { ...widget.defaultProps });
-        toast.success(`${widget.name} added!`);
+    if (!over) return;
+
+    // Adding new widget from sidebar
+    const widget = templates.widgets.find(w => w.type === active.id);
+    if (widget && over.id === 'canvas-drop-zone') {
+      addComponent(widget.type, { ...widget.defaultProps });
+      toast.success(`${widget.name} added!`);
+      return;
+    }
+    
+    // Reordering existing components
+    if (active.id !== over.id && !widget) {
+      const oldIndex = components.findIndex(c => c.id === active.id);
+      const newIndex = components.findIndex(c => c.id === over.id);
+      
+      if (oldIndex !== -1 && newIndex !== -1) {
+        moveComponent(oldIndex, newIndex);
+        toast.success('Component reordered');
       }
     }
   };
@@ -127,6 +179,8 @@ function EditorContent() {
       </div>
     );
   }
+
+  const sortedComponents = [...components].sort((a, b) => a.order - b.order);
 
   return (
     <DndContext
@@ -150,17 +204,33 @@ function EditorContent() {
             onPublish={handlePublish}
             saving={saving}
             hasChanges={hasChanges}
+            onThemeClick={() => setShowThemeSelector(true)}
           />
-          <EditorCanvas templates={templates} />
+          <SortableContext 
+            items={sortedComponents.map(c => c.id)} 
+            strategy={verticalListSortingStrategy}
+          >
+            <EditorCanvas templates={templates} school={school} />
+          </SortableContext>
         </div>
         
         {/* Right Sidebar - Properties */}
         {selectedComponent && (
           <PropertiesPanel templates={templates} />
         )}
+        
+        {/* Theme Selector Modal */}
+        {showThemeSelector && (
+          <ThemeSelector
+            themes={themes}
+            currentTheme={school?.theme || 'default'}
+            onSelect={handleThemeChange}
+            onClose={() => setShowThemeSelector(false)}
+          />
+        )}
       </div>
       
-      {/* Drag Overlay - Shows preview while dragging */}
+      {/* Drag Overlay */}
       <DragOverlay dropAnimation={{
         duration: 200,
         easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)',
@@ -176,6 +246,11 @@ function EditorContent() {
               <p className="font-semibold text-slate-900">{activeWidget.name}</p>
               <p className="text-xs text-blue-600">Drop on canvas to add</p>
             </div>
+          </div>
+        )}
+        {activeId && (
+          <div className="bg-blue-100 border-2 border-blue-500 rounded-xl p-4 shadow-2xl">
+            <p className="font-semibold text-blue-600">Moving component...</p>
           </div>
         )}
       </DragOverlay>
