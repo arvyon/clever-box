@@ -18,7 +18,8 @@ import {
   Mail,
   PanelBottom,
   SeparatorHorizontal,
-  GraduationCap
+  GraduationCap,
+  GripVertical
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -39,27 +40,62 @@ const iconMap = {
 };
 
 const DraggableWidget = ({ widget }) => {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging, transform } = useDraggable({
     id: widget.type,
+    data: widget,
   });
 
   const IconComponent = iconMap[widget.icon] || Grid3X3;
+
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+    zIndex: 1000,
+  } : undefined;
 
   return (
     <div
       ref={setNodeRef}
       {...listeners}
       {...attributes}
+      style={style}
       className={cn(
-        "widget-card flex flex-col items-center justify-center p-4 border border-slate-200 rounded-xl cursor-grab active:cursor-grabbing bg-white",
-        isDragging && "opacity-50 scale-95"
+        "widget-card flex flex-col items-center justify-center p-4 border-2 rounded-xl cursor-grab active:cursor-grabbing bg-white relative group",
+        isDragging 
+          ? "border-blue-500 shadow-2xl scale-105 opacity-90 rotate-2" 
+          : "border-slate-200 hover:border-blue-400 hover:shadow-lg"
       )}
       data-testid={`widget-${widget.type}`}
     >
-      <div className="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center mb-2">
-        <IconComponent className="w-6 h-6 text-blue-600" />
+      {/* Drag handle indicator */}
+      <div className={cn(
+        "absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity",
+        isDragging && "opacity-100"
+      )}>
+        <GripVertical className="w-4 h-4 text-slate-400" />
       </div>
-      <span className="text-sm font-medium text-slate-700 text-center">{widget.name}</span>
+      
+      <div className={cn(
+        "w-12 h-12 rounded-xl flex items-center justify-center mb-3 transition-all duration-200",
+        isDragging ? "bg-blue-600 scale-110" : "bg-blue-50 group-hover:bg-blue-100"
+      )}>
+        <IconComponent className={cn(
+          "w-6 h-6 transition-colors",
+          isDragging ? "text-white" : "text-blue-600"
+        )} />
+      </div>
+      <span className={cn(
+        "text-sm font-medium text-center transition-colors",
+        isDragging ? "text-blue-600" : "text-slate-700"
+      )}>
+        {widget.name}
+      </span>
+      
+      {/* Drag indicator */}
+      {isDragging && (
+        <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full whitespace-nowrap">
+          Dragging...
+        </div>
+      )}
     </div>
   );
 };
@@ -75,7 +111,7 @@ export const WidgetsSidebar = ({ templates, onBack }) => {
   });
 
   const categories = [
-    { id: 'all', name: 'All Widgets' },
+    { id: 'all', name: 'All' },
     ...templates.categories
   ];
 
@@ -135,7 +171,8 @@ export const WidgetsSidebar = ({ templates, onBack }) => {
       {/* Widgets Grid */}
       <ScrollArea className="flex-1 custom-scrollbar">
         <div className="p-4">
-          <p className="text-xs text-slate-500 mb-3 font-medium uppercase tracking-wider">
+          <p className="text-xs text-slate-500 mb-3 font-medium uppercase tracking-wider flex items-center gap-2">
+            <GripVertical className="w-3 h-3" />
             Drag to canvas
           </p>
           <div className="grid grid-cols-2 gap-3">
@@ -152,11 +189,17 @@ export const WidgetsSidebar = ({ templates, onBack }) => {
         </div>
       </ScrollArea>
 
-      {/* Footer */}
-      <div className="p-4 border-t border-slate-200 bg-slate-50">
-        <p className="text-xs text-slate-500 text-center">
-          Drag widgets to the canvas to build your page
-        </p>
+      {/* Footer with instructions */}
+      <div className="p-4 border-t border-slate-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+            <MousePointerClick className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-slate-700">Drag & Drop</p>
+            <p className="text-xs text-slate-500">Grab a widget and drop it on the canvas</p>
+          </div>
+        </div>
       </div>
     </div>
   );
