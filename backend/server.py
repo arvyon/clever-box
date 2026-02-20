@@ -403,6 +403,104 @@ async def get_component_templates():
         ]
     }
 
+# ============ IMAGE UPLOAD ============
+
+@api_router.post("/upload")
+async def upload_image(file: UploadFile = File(...)):
+    """Upload an image and return the URL"""
+    # Validate file type
+    allowed_types = ["image/jpeg", "image/png", "image/gif", "image/webp"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="Invalid file type. Only JPEG, PNG, GIF, WebP allowed.")
+    
+    # Generate unique filename
+    ext = file.filename.split(".")[-1] if "." in file.filename else "jpg"
+    filename = f"{uuid.uuid4()}.{ext}"
+    filepath = UPLOAD_DIR / filename
+    
+    # Save file
+    with open(filepath, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    # Return the URL (using the backend URL)
+    return {
+        "url": f"/uploads/{filename}",
+        "filename": filename
+    }
+
+# ============ THEMES ============
+
+@api_router.get("/themes")
+async def get_themes():
+    """Get available themes for school websites"""
+    return {
+        "themes": [
+            {
+                "id": "default",
+                "name": "Classic Blue",
+                "description": "Professional blue theme with warm amber accents",
+                "preview": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=400",
+                "colors": {
+                    "primary": "#1D4ED8",
+                    "secondary": "#FBBF24",
+                    "background": "#FFFFFF",
+                    "text": "#1E293B",
+                    "accent": "#3B82F6"
+                },
+                "heroStyle": "gradient",
+                "fontFamily": "Outfit"
+            },
+            {
+                "id": "forest",
+                "name": "Forest Green",
+                "description": "Natural green theme perfect for eco-conscious schools",
+                "preview": "https://images.unsplash.com/photo-1509062522246-3755977927d7?w=400",
+                "colors": {
+                    "primary": "#166534",
+                    "secondary": "#FCD34D",
+                    "background": "#F0FDF4",
+                    "text": "#14532D",
+                    "accent": "#22C55E"
+                },
+                "heroStyle": "nature",
+                "fontFamily": "DM Sans"
+            },
+            {
+                "id": "sunset",
+                "name": "Sunset Orange",
+                "description": "Warm and energetic theme with vibrant colors",
+                "preview": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=400",
+                "colors": {
+                    "primary": "#EA580C",
+                    "secondary": "#0EA5E9",
+                    "background": "#FFFBEB",
+                    "text": "#431407",
+                    "accent": "#F97316"
+                },
+                "heroStyle": "warm",
+                "fontFamily": "Nunito"
+            }
+        ]
+    }
+
+@api_router.put("/schools/{school_id}/theme")
+async def update_school_theme(school_id: str, theme_data: Dict[str, Any]):
+    """Update school theme"""
+    existing = await db.schools.find_one({"id": school_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="School not found")
+    
+    update_data = {
+        "theme": theme_data.get("theme", "default"),
+        "primary_color": theme_data.get("primary_color", "#1D4ED8"),
+        "secondary_color": theme_data.get("secondary_color", "#FBBF24")
+    }
+    
+    await db.schools.update_one({"id": school_id}, {"$set": update_data})
+    
+    updated = await db.schools.find_one({"id": school_id}, {"_id": 0})
+    return updated
+
 # ============ SEED DATA ============
 
 @api_router.post("/seed")
