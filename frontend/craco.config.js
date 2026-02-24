@@ -45,36 +45,22 @@ const webpackConfig = {
   webpack: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
-      'ajv': path.resolve(__dirname, 'node_modules/ajv'),
-      'ajv-keywords': path.resolve(__dirname, 'node_modules/ajv-keywords'),
-      'ajv-formats': path.resolve(__dirname, 'node_modules/ajv-formats'),
-    },
-    resolve: {
-      alias: {
-        'ajv': path.resolve(__dirname, 'node_modules/ajv'),
-        'ajv-keywords': path.resolve(__dirname, 'node_modules/ajv-keywords'),
-        'ajv-formats': path.resolve(__dirname, 'node_modules/ajv-formats'),
-      },
     },
     configure: (webpackConfig) => {
 
       // Add ignored patterns to reduce watched directories
-        webpackConfig.watchOptions = {
-          ...webpackConfig.watchOptions,
-          ignored: [
-            '**/node_modules/**',
-            '**/.git/**',
-            '**/build/**',
-            '**/dist/**',
-            '**/coverage/**',
-            '**/public/**',
+      webpackConfig.watchOptions = {
+        ...webpackConfig.watchOptions,
+        ignored: [
+          '**/node_modules/**',
+          '**/.git/**',
+          '**/build/**',
+          '**/dist/**',
+          '**/coverage/**',
+          '**/public/**',
         ],
       };
 
-      // Disable fork-ts-checker-webpack-plugin for JS projects to avoid ajv conflicts
-      webpackConfig.plugins = webpackConfig.plugins.filter(
-        plugin => plugin.constructor.name !== 'ForkTsCheckerWebpackPlugin'
-      );
 
       // Add health check plugin to webpack if enabled
       if (config.enableHealthCheck && healthPluginInstance) {
