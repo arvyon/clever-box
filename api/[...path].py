@@ -14,10 +14,11 @@ sys.path.insert(0, str(backend_path))
 from server import app
 from mangum import Mangum
 
-# When running on Vercel, the /api prefix is already in the URL path
-# So we need to adjust the app's root path
-# The FastAPI app has routes under /api, and Vercel routes /api/* to this function
-# So the path matching should work correctly
+# Vercel's [...path] receives the path without /api prefix
+# But FastAPI routes have /api prefix, so we need to prepend it
+# Mangum will handle the path correctly when we wrap the app
 
 # Wrap FastAPI app with Mangum for serverless compatibility
+# The app already has /api prefix in routes, and Vercel routes /api/* here
+# So paths will match correctly
 handler = Mangum(app, lifespan="off")
