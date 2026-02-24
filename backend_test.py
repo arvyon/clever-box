@@ -7,7 +7,7 @@ from datetime import datetime
 import uuid
 
 class CMS_API_Tester:
-    def __init__(self, base_url="https://school-web-studio.preview.emergentagent.com"):
+    def __init__(self, base_url="http://localhost:8000"):
         self.base_url = base_url
         self.api_url = f"{base_url}/api"
         self.token = None
