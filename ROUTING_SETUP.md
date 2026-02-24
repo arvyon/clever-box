@@ -62,11 +62,6 @@ clever-box/
   "buildCommand": "cd frontend && npm install --legacy-peer-deps && DISABLE_ESLINT_PLUGIN=true npm run build",
   "outputDirectory": "frontend/build",
   "installCommand": "cd frontend && npm install --legacy-peer-deps",
-  "functions": {
-    "api/**/*.py": {
-      "runtime": "python3.9"
-    }
-  },
   "rewrites": [
     {
       "source": "/((?!api/).*)",
@@ -77,7 +72,9 @@ clever-box/
 ```
 
 **Key Points:**
-- `functions`: Explicitly configures Python runtime for API functions
+- Vercel automatically detects Python functions in `api/` directory
+- `runtime.txt` in `api/` directory specifies Python version (3.9)
+- `requirements.txt` in `api/` directory lists Python dependencies
 - `rewrites`: Routes all non-API requests to React app
 - `/api/*` requests are automatically handled by Vercel (no rewrite needed)
 
@@ -96,7 +93,7 @@ clever-box/
 
 When a request comes to `/api/schools`:
 
-1. **Vercel Routing**: 
+1. **Vercel Routing**:
    - Vercel detects `/api/*` pattern
    - Routes to `api/[...path].py` serverless function
    - The `[...path]` captures: `schools`
