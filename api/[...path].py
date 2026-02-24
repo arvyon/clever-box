@@ -63,15 +63,28 @@ try:
     from server import app
     log_info("✓ Successfully imported server module")
     log_info(f"FastAPI app: {app}")
-    log_info(f"FastAPI app routes: {[r.path for r in app.routes]}")
-    
+
+    # Log all registered routes
+    routes_info = []
+    for route in app.routes:
+        if hasattr(route, 'path') and hasattr(route, 'methods'):
+            routes_info.append(f"{list(route.methods)} {route.path}")
+        elif hasattr(route, 'path'):
+            routes_info.append(f"ANY {route.path}")
+    log_info(f"FastAPI app routes ({len(routes_info)} total):")
+    for route_info in routes_info[:20]:  # Log first 20 routes
+        log_info(f"  - {route_info}")
+    if len(routes_info) > 20:
+        log_info(f"  ... and {len(routes_info) - 20} more routes")
+
     log_info("Wrapping FastAPI app with Mangum...")
     handler = Mangum(app, lifespan="off")
     log_info("✓ Successfully created Mangum handler")
+    log_info(f"Handler type: {type(handler)}")
     log_info("=" * 60)
     log_info("Serverless function initialized successfully!")
     log_info("=" * 60)
-    
+
 except ImportError as e:
     log_error(f"Failed to import server module: {e}", e)
     log_error(f"Python path: {sys.path}")
@@ -79,7 +92,7 @@ except ImportError as e:
     error_app = FastAPI()
     error_msg = str(e)
     error_trace = traceback.format_exc()
-    
+
     @error_app.exception_handler(Exception)
     async def global_exception_handler(request, exc):
         log_error(f"Request failed: {exc}", exc)
@@ -93,7 +106,7 @@ except ImportError as e:
                 'trace': error_trace.split('\n')[-10:] if error_trace else []
             }
         )
-    
+
     @error_app.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
     async def error_handler(full_path: str, request: Request):
         log_error(f"Request to {full_path} failed - server not initialized")
@@ -107,15 +120,15 @@ except ImportError as e:
                 'hint': 'Check Vercel function logs for full traceback'
             }
         )
-    
+
     handler = Mangum(error_app, lifespan="off")
-    
+
 except Exception as e:
     log_error(f"Failed to initialize server: {e}", e)
     error_app = FastAPI()
     error_msg = str(e)
     error_trace = traceback.format_exc()
-    
+
     @error_app.exception_handler(Exception)
     async def global_exception_handler(request, exc):
         log_error(f"Request failed: {exc}", exc)
@@ -129,7 +142,7 @@ except Exception as e:
                 'trace': error_trace.split('\n')[-10:] if error_trace else []
             }
         )
-    
+
     @error_app.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
     async def error_handler(full_path: str, request: Request):
         log_error(f"Request to {full_path} failed - server not initialized")
@@ -143,7 +156,7 @@ except Exception as e:
                 'hint': 'Check Vercel function logs for full traceback'
             }
         )
-    
+
     handler = Mangum(error_app, lifespan="off")
 
 # Add request logging middleware
@@ -158,28 +171,6 @@ async def log_request(request: Request, call_next):
         log_error(f"Request handler error: {e}", e)
         raise
 
-# Wrap handler to add logging
-original_handler = handler
-
-async def logged_handler(event, context):
-    log_info("=" * 60)
-    log_info(f"Received request: {event.get('httpMethod', 'UNKNOWN')} {event.get('path', 'UNKNOWN')}")
-    log_info(f"Event keys: {list(event.keys())}")
-    try:
-        result = await original_handler(event, context)
-        log_info(f"Request completed successfully")
-        return result
-    except Exception as e:
-        log_error(f"Handler error: {e}", e)
-        return {
-            'statusCode': 500,
-            'headers': {'Content-Type': 'application/json'},
-            'body': json.dumps({
-                'error': 'Handler execution failed',
-                'message': str(e),
-                'type': type(e).__name__,
-                'hint': 'Check Vercel function logs for full traceback'
-            })
-        }
-
-handler = logged_handler
+# The handler is ready - Mangum automatically handles Vercel's event format
+# Vercel will call this handler for all /api/* requests
+log_info("Handler exported and ready for Vercel")
