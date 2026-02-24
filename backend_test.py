@@ -285,7 +285,7 @@ class CMS_API_Tester:
         return success
 
 def main():
-    print("🚀 Starting CleverCampus CMS API Tests")
+    print("🚀 Starting CleverBox CMS API Tests")
     print("=" * 50)
     
     tester = CMS_API_Tester()

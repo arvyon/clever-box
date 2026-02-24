@@ -17,19 +17,19 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
-    
+
     try {
       const response = await login(email, password);
       localStorage.setItem('cms_token', response.token);
       localStorage.setItem('cms_user', JSON.stringify(response.user));
-      
+
       // Seed demo data
       try {
         await seedData();
       } catch (seedErr) {
         // Ignore if already seeded
       }
-      
+
       navigate('/dashboard');
     } catch (err) {
       setError('Login failed. Please try again.');
@@ -54,25 +54,25 @@ export default function LoginPage() {
               <GraduationCap className="w-7 h-7 text-slate-900" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">CleverCampus</h1>
+              <h1 className="text-2xl font-bold tracking-tight">CleverBox</h1>
               <p className="text-blue-200 text-sm">School Website CMS</p>
             </div>
           </div>
-          
+
           <h2 className="text-4xl lg:text-5xl font-bold leading-tight mb-6">
             Beautiful School Websites,
             <span className="text-amber-400"> Made Simple</span>
           </h2>
-          
+
           <p className="text-blue-100 text-lg mb-10 leading-relaxed">
-            Create stunning, professional school websites with our intuitive drag-and-drop builder. 
+            Create stunning, professional school websites with our intuitive drag-and-drop builder.
             No coding required.
           </p>
-          
+
           <div className="space-y-4">
             {features.map((feature, idx) => (
-              <div 
-                key={idx} 
+              <div
+                key={idx}
                 className="flex items-center gap-4 p-4 rounded-xl bg-white/10 backdrop-blur-sm animate-slide-in-left"
                 style={{ animationDelay: `${idx * 100}ms` }}
               >
@@ -100,7 +100,7 @@ export default function LoginPage() {
             <h3 className="text-2xl font-bold text-slate-900 mb-2">Welcome Back</h3>
             <p className="text-slate-500">Sign in to manage your school websites</p>
           </div>
-          
+
           <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="email" className="text-slate-700">Email Address</Label>
@@ -114,7 +114,7 @@ export default function LoginPage() {
                 data-testid="login-email-input"
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="password" className="text-slate-700">Password</Label>
               <Input
@@ -127,13 +127,13 @@ export default function LoginPage() {
                 data-testid="login-password-input"
               />
             </div>
-            
+
             {error && (
               <p className="text-red-500 text-sm text-center" data-testid="login-error">{error}</p>
             )}
-            
-            <Button 
-              type="submit" 
+
+            <Button
+              type="submit"
               className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl"
               disabled={loading}
               data-testid="login-submit-btn"
@@ -141,7 +141,7 @@ export default function LoginPage() {
               {loading ? 'Signing In...' : 'Sign In to Dashboard'}
             </Button>
           </form>
-          
+
           <div className="mt-6 p-4 bg-slate-50 rounded-xl">
             <p className="text-sm text-slate-600 text-center">
               <strong>Demo Credentials:</strong><br />

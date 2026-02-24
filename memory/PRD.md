@@ -1,4 +1,4 @@
-# CleverCampus CMS - Product Requirements Document
+# CleverBox CMS - Product Requirements Document
 
 ## Original Problem Statement
 Build a multi-tenant drag and drop CMS for school websites, similar to WordPress/Elementor for schools. Focus on CMS editor with drag and drop functionality, inline editing, and section-based editing. Elementary school template with demo/dummy auth.

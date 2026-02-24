@@ -219,7 +219,7 @@ async def update_page(page_id: str, page_update: PageUpdate):
     check = supabase.table('pages').select('id').eq('id', page_id).execute()
     if not check.data:
         raise HTTPException(status_code=404, detail="Page not found")
-    
+
     update_data = {}
     if page_update.name is not None:
         update_data['name'] = page_update.name
@@ -230,11 +230,11 @@ async def update_page(page_id: str, page_update: PageUpdate):
         update_data['components'] = json.dumps(page_update.components)
     if page_update.is_published is not None:
         update_data['is_published'] = page_update.is_published
-    
+
     # updated_at will be auto-updated by trigger
-    
+
     result = supabase.table('pages').update(update_data).eq('id', page_id).execute()
-    
+
     if result.data:
         updated = result.data[0]
         if isinstance(updated.get('created_at'), str):
@@ -446,16 +446,16 @@ async def upload_image(file: UploadFile = File(...)):
     allowed_types = ["image/jpeg", "image/png", "image/gif", "image/webp"]
     if file.content_type not in allowed_types:
         raise HTTPException(status_code=400, detail="Invalid file type. Only JPEG, PNG, GIF, WebP allowed.")
-    
+
     # Generate unique filename
     ext = file.filename.split(".")[-1] if "." in file.filename else "jpg"
     filename = f"{uuid.uuid4()}.{ext}"
     filepath = UPLOAD_DIR / filename
-    
+
     # Save file
     with open(filepath, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
-    
+
     # Return the URL (using the backend URL)
     return {
         "url": f"/uploads/{filename}",
@@ -524,15 +524,15 @@ async def update_school_theme(school_id: str, theme_data: Dict[str, Any]):
     check = supabase.table('schools').select('id').eq('id', school_id).execute()
     if not check.data:
         raise HTTPException(status_code=404, detail="School not found")
-    
+
     update_data = {
         "theme": theme_data.get("theme", "default"),
         "primary_color": theme_data.get("primary_color", "#1D4ED8"),
         "secondary_color": theme_data.get("secondary_color", "#FBBF24")
     }
-    
+
     result = supabase.table('schools').update(update_data).eq('id', school_id).execute()
-    
+
     if result.data:
         return result.data[0]
     raise HTTPException(status_code=500, detail="Failed to update school theme")
@@ -545,7 +545,7 @@ async def seed_data():
     existing = supabase.table('schools').select('id').limit(1).execute()
     if existing.data:
         return {"message": "Data already seeded"}
-    
+
     # Create demo school
     school = School(
         id="demo-school-1",
@@ -558,7 +558,7 @@ async def seed_data():
     doc = school.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()
     supabase.table('schools').insert(doc).execute()
-    
+
     # Create demo page with components
     page = PageData(
         id="demo-page-1",
@@ -639,14 +639,14 @@ async def seed_data():
     # Convert components to JSON for PostgreSQL
     page_doc['components'] = json.dumps([c.model_dump() for c in page.components])
     supabase.table('pages').insert(page_doc).execute()
-    
+
     return {"message": "Demo data seeded successfully", "school_id": school.id, "page_id": page.id}
 
 # ============ ROOT ============
 
 @api_router.get("/")
 async def root():
-    return {"message": "CleverCampus CMS API", "version": "1.0.0"}
+    return {"message": "CleverBox CMS API", "version": "1.0.0"}
 
 # Include router
 app.include_router(api_router)
