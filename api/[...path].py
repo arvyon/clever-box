@@ -14,11 +14,12 @@ sys.path.insert(0, str(backend_path))
 from server import app
 from mangum import Mangum
 
-# Vercel's [...path] receives the path without /api prefix
-# But FastAPI routes have /api prefix, so we need to prepend it
-# Mangum will handle the path correctly when we wrap the app
+# Vercel automatically routes /api/* to files in api/ directory
+# When a request comes to /api/auth/login:
+# - Vercel routes it to api/[...path].py
+# - Mangum receives the full request path: /api/auth/login
+# - FastAPI routes have /api prefix, so /api/auth/login matches correctly
+# No path manipulation needed - Mangum handles it automatically
 
 # Wrap FastAPI app with Mangum for serverless compatibility
-# The app already has /api prefix in routes, and Vercel routes /api/* here
-# So paths will match correctly
 handler = Mangum(app, lifespan="off")

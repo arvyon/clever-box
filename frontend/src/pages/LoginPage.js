@@ -38,6 +38,27 @@ export default function LoginPage() {
     }
   };
 
+  const handleSkipLogin = async () => {
+    // Bypass login - create demo user directly
+    const demoUser = {
+      id: 'demo-user-1',
+      email: 'admin@demo.com',
+      name: 'Demo Admin',
+      role: 'admin'
+    };
+    localStorage.setItem('cms_token', 'demo-token-bypass');
+    localStorage.setItem('cms_user', JSON.stringify(demoUser));
+
+    // Try to seed demo data (non-blocking)
+    try {
+      await seedData();
+    } catch (seedErr) {
+      // Ignore if already seeded or if backend is not available
+    }
+
+    navigate('/dashboard');
+  };
+
   const features = [
     { icon: LayoutDashboard, title: 'Drag & Drop Editor', desc: 'Build pages visually' },
     { icon: Palette, title: 'Custom Branding', desc: 'Match your school identity' },
@@ -142,11 +163,23 @@ export default function LoginPage() {
             </Button>
           </form>
 
+          <div className="mt-4">
+            <Button
+              type="button"
+              onClick={handleSkipLogin}
+              variant="outline"
+              className="w-full h-12 border-2 border-blue-200 text-blue-600 hover:bg-blue-50 font-semibold rounded-xl"
+            >
+              Skip Login (Demo Mode)
+            </Button>
+          </div>
+
           <div className="mt-6 p-4 bg-slate-50 rounded-xl">
             <p className="text-sm text-slate-600 text-center">
               <strong>Demo Credentials:</strong><br />
               Email: admin@demo.com<br />
-              Password: demo123
+              Password: demo123<br />
+              <span className="text-xs text-slate-400 mt-2 block">Or click "Skip Login" to bypass authentication</span>
             </p>
           </div>
         </div>
