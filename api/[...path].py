@@ -78,9 +78,13 @@ try:
         log_info(f"  ... and {len(routes_info) - 20} more routes")
 
     log_info("Wrapping FastAPI app with Mangum...")
+    # Mangum automatically handles Vercel's event format
+    # It will receive the full path from Vercel (e.g., /api/schools)
+    # FastAPI routes with /api prefix will match correctly
     handler = Mangum(app, lifespan="off")
     log_info("✓ Successfully created Mangum handler")
     log_info(f"Handler type: {type(handler)}")
+    log_info(f"Handler callable: {callable(handler)}")
     log_info("=" * 60)
     log_info("Serverless function initialized successfully!")
     log_info("=" * 60)
@@ -159,18 +163,9 @@ except Exception as e:
 
     handler = Mangum(error_app, lifespan="off")
 
-# Add request logging middleware
-async def log_request(request: Request, call_next):
-    log_info(f"→ {request.method} {request.url.path}")
-    log_info(f"  Query params: {dict(request.query_params)}")
-    try:
-        response = await call_next(request)
-        log_info(f"← {request.method} {request.url.path} → {response.status_code}")
-        return response
-    except Exception as e:
-        log_error(f"Request handler error: {e}", e)
-        raise
-
 # The handler is ready - Mangum automatically handles Vercel's event format
 # Vercel will call this handler for all /api/* requests
+# The handler variable must be at module level for Vercel to detect it
 log_info("Handler exported and ready for Vercel")
+log_info(f"Handler type: {type(handler)}")
+log_info(f"Handler callable: {callable(handler)}")

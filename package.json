@@ -2,14 +2,24 @@
   "name": "clever-box",
   "version": "1.0.0",
   "private": true,
+  "workspaces": [
+    "frontend"
+  ],
   "scripts": {
     "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"cyan,magenta\" \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "cd backend && python -m uvicorn server:app --reload --host 0.0.0.0 --port 8000",
     "dev:frontend": "cd frontend && npm start",
-    "install:all": "cd frontend && npm install && cd ../backend && pip install -r requirements.txt",
-    "install": "npm install && cd frontend && npm install"
+    "install:all": "npm install && cd frontend && npm install --legacy-peer-deps && cd ../backend && pip install -r requirements.txt",
+    "install": "npm install && cd frontend && npm install --legacy-peer-deps",
+    "build": "cd frontend && npm run build",
+    "build:api": "echo 'API functions are deployed automatically by Vercel'",
+    "test": "cd frontend && npm test"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
   }
 }

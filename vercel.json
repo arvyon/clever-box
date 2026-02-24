@@ -2,6 +2,11 @@
   "buildCommand": "cd frontend && npm install --legacy-peer-deps && DISABLE_ESLINT_PLUGIN=true npm run build",
   "outputDirectory": "frontend/build",
   "installCommand": "cd frontend && npm install --legacy-peer-deps",
+  "functions": {
+    "api/**/*.py": {
+      "runtime": "python3.9"
+    }
+  },
   "rewrites": [
     {
       "source": "/((?!api/).*)",
