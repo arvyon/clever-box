@@ -29,6 +29,30 @@ Set these in Vercel Dashboard → Settings → Environment Variables:
 
 ## Troubleshooting
 
+### API requests return 500 Internal Server Error
+**Most common cause: Missing environment variables**
+
+1. **Check Vercel Environment Variables:**
+   - Go to Vercel Dashboard → Your Project → Settings → Environment Variables
+   - Ensure `SUPABASE_URL` and `SUPABASE_KEY` are set
+   - Make sure they're set for **Production**, **Preview**, and **Development** environments
+   - After adding/updating env vars, **redeploy** your project
+
+2. **Verify Supabase credentials:**
+   - `SUPABASE_URL` should be: `https://your-project.supabase.co`
+   - `SUPABASE_KEY` should be your **anon/public** key (not the service_role key)
+   - Find these in Supabase Dashboard → Settings → API
+
+3. **Check Vercel Function Logs:**
+   - Go to Vercel Dashboard → Your Project → Functions tab
+   - Click on the function that failed
+   - Check the logs for specific error messages
+
+4. **Common error messages:**
+   - `"Missing required environment variables"` → Set SUPABASE_URL and SUPABASE_KEY
+   - `"Server initialization failed"` → Check function logs for details
+   - `"FUNCTION_INVOCATION_FAILED"` → Usually means import error or missing env vars
+
 ### API requests return 404
 - Check that `api/[...path].py` exists
 - Verify `api/requirements.txt` has all dependencies

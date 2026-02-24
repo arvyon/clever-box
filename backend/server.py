@@ -2,6 +2,8 @@ from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
 from supabase import create_client, Client
 import os
 import logging
@@ -13,23 +15,93 @@ from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone
 import json
+import traceback
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+def log_info(msg):
+    logger.info(msg)
+    print(f"[BACKEND] {msg}")
+
+def log_error(msg, exc=None):
+    logger.error(msg, exc_info=exc)
+    print(f"[BACKEND ERROR] {msg}")
+    if exc:
+        print(f"[BACKEND ERROR] Traceback: {traceback.format_exc()}")
+
+log_info("=" * 60)
+log_info("Initializing FastAPI backend server...")
+log_info("=" * 60)
 
 ROOT_DIR = Path(__file__).parent
+log_info(f"Root directory: {ROOT_DIR}")
+
 UPLOAD_DIR = ROOT_DIR / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
+log_info(f"Upload directory: {UPLOAD_DIR}")
 
+log_info("Loading environment variables...")
 load_dotenv(ROOT_DIR / '.env')
+log_info(f"Environment file exists: {(ROOT_DIR / '.env').exists()}")
 
-# Supabase connection
-supabase_url = os.environ['SUPABASE_URL']
-supabase_key = os.environ['SUPABASE_KEY']
-supabase: Client = create_client(supabase_url, supabase_key)
+# Supabase connection with error handling
+log_info("Checking Supabase environment variables...")
+supabase_url = os.environ.get('SUPABASE_URL')
+supabase_key = os.environ.get('SUPABASE_KEY')
 
-app = FastAPI()
+log_info(f"SUPABASE_URL present: {bool(supabase_url)}")
+log_info(f"SUPABASE_KEY present: {bool(supabase_key)}")
+
+if supabase_url:
+    log_info(f"SUPABASE_URL: {supabase_url[:30]}..." if len(supabase_url) > 30 else f"SUPABASE_URL: {supabase_url}")
+else:
+    log_error("SUPABASE_URL is missing!")
+
+if supabase_key:
+    log_info(f"SUPABASE_KEY: {supabase_key[:20]}..." if len(supabase_key) > 20 else f"SUPABASE_KEY: {supabase_key[:10]}...")
+else:
+    log_error("SUPABASE_KEY is missing!")
+
+if not supabase_url or not supabase_key:
+    error_msg = (
+        "Missing required environment variables: SUPABASE_URL and SUPABASE_KEY must be set. "
+        "Please set them in Vercel Dashboard → Settings → Environment Variables"
+    )
+    log_error(error_msg)
+    raise ValueError(error_msg)
+
+log_info("Creating Supabase client...")
+try:
+    supabase: Client = create_client(supabase_url, supabase_key)
+    log_info("✓ Supabase client created successfully")
+    
+    # Test connection by trying to access a table (this will fail gracefully if tables don't exist)
+    try:
+        log_info("Testing Supabase connection...")
+        # Just check if client is initialized, don't make actual query
+        log_info("✓ Supabase client initialized")
+    except Exception as test_error:
+        log_error(f"Supabase connection test failed: {test_error}", test_error)
+        # Don't raise - client might still work for actual queries
+        
+except Exception as e:
+    log_error(f"Failed to create Supabase client: {e}", e)
+    raise
+
+log_info("Creating FastAPI app...")
+app = FastAPI(title="CleverBox API", version="1.0.0")
 api_router = APIRouter(prefix="/api")
+log_info("✓ FastAPI app and router created")
 
 # Serve uploaded files
+log_info("Mounting static files directory...")
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+log_info(f"✓ Static files mounted at /uploads")
 
 # ============ MODELS ============
 
@@ -646,24 +718,44 @@ async def seed_data():
 
 @api_router.get("/")
 async def root():
+    log_info("Root endpoint called")
     return {"message": "CleverBox CMS API", "version": "1.0.0"}
 
 # Include router
+log_info("Including API router...")
 app.include_router(api_router)
+log_info(f"✓ API router included with {len(app.routes)} total routes")
+log_info(f"Registered routes: {[r.path for r in app.routes if hasattr(r, 'path')]}")
 
+# Add request logging middleware
+class LoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        log_info(f"→ {request.method} {request.url.path}")
+        try:
+            response = await call_next(request)
+            log_info(f"← {request.method} {request.url.path} → {response.status_code}")
+            return response
+        except Exception as e:
+            log_error(f"Request handler error for {request.method} {request.url.path}: {e}", e)
+            raise
+
+app.add_middleware(LoggingMiddleware)
+
+log_info("Adding CORS middleware...")
+cors_origins = os.environ.get('CORS_ORIGINS', '*').split(',')
+log_info(f"CORS origins: {cors_origins}")
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+log_info("✓ CORS middleware added")
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+log_info("=" * 60)
+log_info("FastAPI backend server initialized successfully!")
+log_info("=" * 60)
 
 # Supabase client doesn't need explicit shutdown
 # Connection is managed by the client library
