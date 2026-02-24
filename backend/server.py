@@ -2,7 +2,7 @@ from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
+from supabase import create_client, Client
 import os
 import logging
 import base64
@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone
+import json
 
 ROOT_DIR = Path(__file__).parent
 UPLOAD_DIR = ROOT_DIR / "uploads"
@@ -19,10 +20,10 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 
 load_dotenv(ROOT_DIR / '.env')
 
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+# Supabase connection
+supabase_url = os.environ['SUPABASE_URL']
+supabase_key = os.environ['SUPABASE_KEY']
+supabase: Client = create_client(supabase_url, supabase_key)
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
@@ -121,32 +122,39 @@ async def create_school(school: SchoolCreate):
     school_obj = School(**school.model_dump())
     doc = school_obj.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()
-    await db.schools.insert_one(doc)
-    return school_obj
+    result = supabase.table('schools').insert(doc).execute()
+    if result.data:
+        return School(**result.data[0])
+    raise HTTPException(status_code=500, detail="Failed to create school")
 
 @api_router.get("/schools", response_model=List[School])
 async def get_schools():
-    schools = await db.schools.find({}, {"_id": 0}).to_list(100)
-    for school in schools:
+    result = supabase.table('schools').select('*').limit(100).execute()
+    schools = []
+    for school in result.data:
         if isinstance(school.get('created_at'), str):
-            school['created_at'] = datetime.fromisoformat(school['created_at'])
+            school['created_at'] = datetime.fromisoformat(school['created_at'].replace('Z', '+00:00'))
+        schools.append(School(**school))
     return schools
 
 @api_router.get("/schools/{school_id}", response_model=School)
 async def get_school(school_id: str):
-    school = await db.schools.find_one({"id": school_id}, {"_id": 0})
-    if not school:
+    result = supabase.table('schools').select('*').eq('id', school_id).execute()
+    if not result.data:
         raise HTTPException(status_code=404, detail="School not found")
+    school = result.data[0]
     if isinstance(school.get('created_at'), str):
-        school['created_at'] = datetime.fromisoformat(school['created_at'])
-    return school
+        school['created_at'] = datetime.fromisoformat(school['created_at'].replace('Z', '+00:00'))
+    return School(**school)
 
 @api_router.delete("/schools/{school_id}")
 async def delete_school(school_id: str):
-    result = await db.schools.delete_one({"id": school_id})
-    if result.deleted_count == 0:
+    # Check if school exists
+    check = supabase.table('schools').select('id').eq('id', school_id).execute()
+    if not check.data:
         raise HTTPException(status_code=404, detail="School not found")
-    await db.pages.delete_many({"school_id": school_id})
+    # Delete school (pages will be cascade deleted)
+    supabase.table('schools').delete().eq('id', school_id).execute()
     return {"message": "School deleted"}
 
 # ============ PAGE ROUTES ============
@@ -163,35 +171,53 @@ async def create_page(page: PageCreate):
     doc = page_obj.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
-    await db.pages.insert_one(doc)
-    return page_obj
+    # Convert components to JSON for PostgreSQL
+    doc['components'] = json.dumps([c.model_dump() for c in components])
+    result = supabase.table('pages').insert(doc).execute()
+    if result.data:
+        # Parse components back from JSON
+        result.data[0]['components'] = json.loads(result.data[0]['components'])
+        return PageData(**result.data[0])
+    raise HTTPException(status_code=500, detail="Failed to create page")
 
 @api_router.get("/pages", response_model=List[PageData])
 async def get_pages(school_id: Optional[str] = None):
-    query = {"school_id": school_id} if school_id else {}
-    pages = await db.pages.find(query, {"_id": 0}).to_list(100)
-    for page in pages:
+    query = supabase.table('pages').select('*')
+    if school_id:
+        query = query.eq('school_id', school_id)
+    result = query.limit(100).execute()
+    pages = []
+    for page in result.data:
         if isinstance(page.get('created_at'), str):
-            page['created_at'] = datetime.fromisoformat(page['created_at'])
+            page['created_at'] = datetime.fromisoformat(page['created_at'].replace('Z', '+00:00'))
         if isinstance(page.get('updated_at'), str):
-            page['updated_at'] = datetime.fromisoformat(page['updated_at'])
+            page['updated_at'] = datetime.fromisoformat(page['updated_at'].replace('Z', '+00:00'))
+        # Parse components from JSON
+        if isinstance(page.get('components'), str):
+            page['components'] = json.loads(page['components'])
+        pages.append(PageData(**page))
     return pages
 
 @api_router.get("/pages/{page_id}", response_model=PageData)
 async def get_page(page_id: str):
-    page = await db.pages.find_one({"id": page_id}, {"_id": 0})
-    if not page:
+    result = supabase.table('pages').select('*').eq('id', page_id).execute()
+    if not result.data:
         raise HTTPException(status_code=404, detail="Page not found")
+    page = result.data[0]
     if isinstance(page.get('created_at'), str):
-        page['created_at'] = datetime.fromisoformat(page['created_at'])
+        page['created_at'] = datetime.fromisoformat(page['created_at'].replace('Z', '+00:00'))
     if isinstance(page.get('updated_at'), str):
-        page['updated_at'] = datetime.fromisoformat(page['updated_at'])
-    return page
+        page['updated_at'] = datetime.fromisoformat(page['updated_at'].replace('Z', '+00:00'))
+    # Parse components from JSON
+    if isinstance(page.get('components'), str):
+        page['components'] = json.loads(page['components'])
+    return PageData(**page)
 
 @api_router.put("/pages/{page_id}", response_model=PageData)
 async def update_page(page_id: str, page_update: PageUpdate):
-    existing = await db.pages.find_one({"id": page_id}, {"_id": 0})
-    if not existing:
+    # Check if page exists
+    check = supabase.table('pages').select('id').eq('id', page_id).execute()
+    if not check.data:
         raise HTTPException(status_code=404, detail="Page not found")
     
     update_data = {}
@@ -200,26 +226,34 @@ async def update_page(page_id: str, page_update: PageUpdate):
     if page_update.slug is not None:
         update_data['slug'] = page_update.slug
     if page_update.components is not None:
-        update_data['components'] = page_update.components
+        # Convert components to JSON for PostgreSQL
+        update_data['components'] = json.dumps(page_update.components)
     if page_update.is_published is not None:
         update_data['is_published'] = page_update.is_published
     
-    update_data['updated_at'] = datetime.now(timezone.utc).isoformat()
+    # updated_at will be auto-updated by trigger
     
-    await db.pages.update_one({"id": page_id}, {"$set": update_data})
+    result = supabase.table('pages').update(update_data).eq('id', page_id).execute()
     
-    updated = await db.pages.find_one({"id": page_id}, {"_id": 0})
-    if isinstance(updated.get('created_at'), str):
-        updated['created_at'] = datetime.fromisoformat(updated['created_at'])
-    if isinstance(updated.get('updated_at'), str):
-        updated['updated_at'] = datetime.fromisoformat(updated['updated_at'])
-    return updated
+    if result.data:
+        updated = result.data[0]
+        if isinstance(updated.get('created_at'), str):
+            updated['created_at'] = datetime.fromisoformat(updated['created_at'].replace('Z', '+00:00'))
+        if isinstance(updated.get('updated_at'), str):
+            updated['updated_at'] = datetime.fromisoformat(updated['updated_at'].replace('Z', '+00:00'))
+        # Parse components from JSON
+        if isinstance(updated.get('components'), str):
+            updated['components'] = json.loads(updated['components'])
+        return PageData(**updated)
+    raise HTTPException(status_code=500, detail="Failed to update page")
 
 @api_router.delete("/pages/{page_id}")
 async def delete_page(page_id: str):
-    result = await db.pages.delete_one({"id": page_id})
-    if result.deleted_count == 0:
+    # Check if page exists
+    check = supabase.table('pages').select('id').eq('id', page_id).execute()
+    if not check.data:
         raise HTTPException(status_code=404, detail="Page not found")
+    supabase.table('pages').delete().eq('id', page_id).execute()
     return {"message": "Page deleted"}
 
 # ============ TEMPLATE COMPONENTS ============
@@ -486,8 +520,9 @@ async def get_themes():
 @api_router.put("/schools/{school_id}/theme")
 async def update_school_theme(school_id: str, theme_data: Dict[str, Any]):
     """Update school theme"""
-    existing = await db.schools.find_one({"id": school_id})
-    if not existing:
+    # Check if school exists
+    check = supabase.table('schools').select('id').eq('id', school_id).execute()
+    if not check.data:
         raise HTTPException(status_code=404, detail="School not found")
     
     update_data = {
@@ -496,18 +531,19 @@ async def update_school_theme(school_id: str, theme_data: Dict[str, Any]):
         "secondary_color": theme_data.get("secondary_color", "#FBBF24")
     }
     
-    await db.schools.update_one({"id": school_id}, {"$set": update_data})
+    result = supabase.table('schools').update(update_data).eq('id', school_id).execute()
     
-    updated = await db.schools.find_one({"id": school_id}, {"_id": 0})
-    return updated
+    if result.data:
+        return result.data[0]
+    raise HTTPException(status_code=500, detail="Failed to update school theme")
 
 # ============ SEED DATA ============
 
 @api_router.post("/seed")
 async def seed_data():
     # Check if data already exists
-    existing = await db.schools.find_one({})
-    if existing:
+    existing = supabase.table('schools').select('id').limit(1).execute()
+    if existing.data:
         return {"message": "Data already seeded"}
     
     # Create demo school
@@ -521,7 +557,7 @@ async def seed_data():
     )
     doc = school.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()
-    await db.schools.insert_one(doc)
+    supabase.table('schools').insert(doc).execute()
     
     # Create demo page with components
     page = PageData(
@@ -600,7 +636,9 @@ async def seed_data():
     page_doc = page.model_dump()
     page_doc['created_at'] = page_doc['created_at'].isoformat()
     page_doc['updated_at'] = page_doc['updated_at'].isoformat()
-    await db.pages.insert_one(page_doc)
+    # Convert components to JSON for PostgreSQL
+    page_doc['components'] = json.dumps([c.model_dump() for c in page.components])
+    supabase.table('pages').insert(page_doc).execute()
     
     return {"message": "Demo data seeded successfully", "school_id": school.id, "page_id": page.id}
 
@@ -627,6 +665,5 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    client.close()
+# Supabase client doesn't need explicit shutdown
+# Connection is managed by the client library

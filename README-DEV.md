@@ -29,7 +29,7 @@ npm run dev
 
 1. **Node.js** (v16+) and npm/yarn
 2. **Python** (3.9+) with pip
-3. **MongoDB** running locally (or use MongoDB Atlas)
+3. **Supabase** account (free tier available at supabase.com)
 
 ## Setup Steps
 
@@ -46,24 +46,23 @@ cd frontend && npm install && cd ..
 cd backend && pip install -r requirements.txt && cd ..
 ```
 
-### 2. Configure Backend
+### 2. Setup Supabase
+
+1. Create a project at [supabase.com](https://supabase.com)
+2. Go to SQL Editor and run the SQL from `backend/schema.sql` to create tables
+3. Get your project URL and anon key from Settings → API
+
+### 3. Configure Backend
 
 Create `backend/.env` file:
 
 ```env
-MONGO_URL=mongodb://localhost:27017
-DB_NAME=cleverbox
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=your-anon-public-key
 CORS_ORIGINS=*
 ```
 
-Or use MongoDB Atlas:
-```env
-MONGO_URL=mongodb+srv://username:password@cluster.mongodb.net/
-DB_NAME=cleverbox
-CORS_ORIGINS=*
-```
-
-### 3. Configure Frontend (Optional)
+### 4. Configure Frontend (Optional)
 
 The frontend will automatically use `http://localhost:8000` if `REACT_APP_BACKEND_URL` is not set.
 
@@ -96,9 +95,10 @@ The frontend will automatically open in your browser.
 ## Troubleshooting
 
 ### Backend won't start
-- Make sure MongoDB is running
-- Check that `backend/.env` exists and has correct values
+- Make sure Supabase project is set up and tables are created (run `schema.sql`)
+- Check that `backend/.env` exists with `SUPABASE_URL` and `SUPABASE_KEY`
 - Verify Python dependencies: `pip install -r backend/requirements.txt`
+- Ensure Supabase URL includes `https://` prefix
 
 ### Frontend won't connect to backend
 - Ensure backend is running on port 8000

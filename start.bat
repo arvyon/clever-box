@@ -22,9 +22,11 @@ REM Check if backend has .env file
 if not exist "backend\.env" (
   echo ⚠️  Warning: backend\.env not found!
   echo    Create backend\.env with:
-  echo    MONGO_URL=mongodb://localhost:27017
-  echo    DB_NAME=cleverbox
+  echo    SUPABASE_URL=https://your-project.supabase.co
+  echo    SUPABASE_KEY=your-anon-public-key
   echo    CORS_ORIGINS=*
+  echo.
+  echo    Don't forget to run schema.sql in Supabase SQL Editor!
   echo.
 )
 

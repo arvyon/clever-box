@@ -4,7 +4,7 @@
 # Make sure you have:
 # 1. Python 3.9+ installed
 # 2. Node.js and npm/yarn installed
-# 3. MongoDB running (or update MONGO_URL in backend/.env)
+# 3. Supabase project set up (run schema.sql in SQL Editor)
 
 echo "🚀 Starting Clever Box..."
 echo ""
@@ -25,9 +25,11 @@ fi
 if [ ! -f "backend/.env" ]; then
   echo "⚠️  Warning: backend/.env not found!"
   echo "   Create backend/.env with:"
-  echo "   MONGO_URL=mongodb://localhost:27017"
-  echo "   DB_NAME=cleverbox"
+  echo "   SUPABASE_URL=https://your-project.supabase.co"
+  echo "   SUPABASE_KEY=your-anon-public-key"
   echo "   CORS_ORIGINS=*"
+  echo ""
+  echo "   Don't forget to run schema.sql in Supabase SQL Editor!"
   echo ""
 fi
 
