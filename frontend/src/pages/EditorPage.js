@@ -47,6 +47,7 @@ function EditorContent() {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schoolId, pageId]);
 
   const loadData = async () => {

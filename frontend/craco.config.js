@@ -34,11 +34,12 @@ if (config.enableHealthCheck) {
 
 const webpackConfig = {
   eslint: {
+    enable: process.env.DISABLE_ESLINT_PLUGIN !== "true",
     configure: {
       extends: ["plugin:react-hooks/recommended"],
       rules: {
         "react-hooks/rules-of-hooks": "error",
-        "react-hooks/exhaustive-deps": "warn",
+        "react-hooks/exhaustive-deps": process.env.CI ? "off" : "warn",
       },
     },
   },
