@@ -175,12 +175,12 @@ async def create_school(school: SchoolCreate):
         doc = school_obj.model_dump()
         doc['created_at'] = doc['created_at'].isoformat()
         doc['metadata'] = {}  # Initialize metadata
-        
+
         result = supabase.table('schools').insert(doc).execute()
-        
+
         if not result.data:
             raise HTTPException(status_code=500, detail="Failed to create school")
-        
+
         created_school = result.data[0] if isinstance(result.data, list) else result.data
         return created_school
     except Exception as e:
@@ -195,13 +195,13 @@ async def delete_school(school_id: str):
         result = supabase.table('schools').select('id').eq('id', school_id).execute()
         if not result.data:
             raise HTTPException(status_code=404, detail="School not found")
-        
+
         # Delete all pages for this school (CASCADE should handle this, but explicit is better)
         supabase.table('pages').delete().eq('school_id', school_id).execute()
-        
+
         # Delete the school
         supabase.table('schools').delete().eq('id', school_id).execute()
-        
+
         return {"message": "School deleted"}
     except HTTPException:
         raise
@@ -227,17 +227,17 @@ async def create_page(page: PageCreate):
         doc['updated_at'] = doc['updated_at'].isoformat()
         # Convert components to JSON for PostgreSQL
         doc['components'] = json.dumps([c.model_dump() for c in page_obj.components])
-        
+
         result = supabase.table('pages').insert(doc).execute()
-        
+
         if not result.data:
             raise HTTPException(status_code=500, detail="Failed to create page")
-        
+
         created_page = result.data[0] if isinstance(result.data, list) else result.data
         # Parse components back from JSONB
         if isinstance(created_page.get('components'), str):
             created_page['components'] = json.loads(created_page['components'])
-        
+
         return created_page
     except Exception as e:
         log_error(f"Error creating page: {e}", e)
@@ -251,7 +251,7 @@ async def update_page(page_id: str, page_update: PageUpdate):
         existing = supabase.table('pages').select('*').eq('id', page_id).execute()
         if not existing.data:
             raise HTTPException(status_code=404, detail="Page not found")
-        
+
         update_data = {}
         if page_update.name is not None:
             update_data['name'] = page_update.name
@@ -262,20 +262,20 @@ async def update_page(page_id: str, page_update: PageUpdate):
             update_data['components'] = json.dumps(page_update.components)
         if page_update.is_published is not None:
             update_data['is_published'] = page_update.is_published
-        
+
         # updated_at is handled by database trigger, but we can set it explicitly
         update_data['updated_at'] = datetime.now(timezone.utc).isoformat()
-        
+
         result = supabase.table('pages').update(update_data).eq('id', page_id).select().execute()
-        
+
         if not result.data:
             raise HTTPException(status_code=500, detail="Failed to update page")
-        
+
         updated_page = result.data[0] if isinstance(result.data, list) else result.data
         # Parse components back from JSONB
         if isinstance(updated_page.get('components'), str):
             updated_page['components'] = json.loads(updated_page['components'])
-        
+
         return updated_page
     except HTTPException:
         raise
@@ -291,10 +291,10 @@ async def delete_page(page_id: str):
         result = supabase.table('pages').select('id').eq('id', page_id).execute()
         if not result.data:
             raise HTTPException(status_code=404, detail="Page not found")
-        
+
         # Delete the page
         supabase.table('pages').delete().eq('id', page_id).execute()
-        
+
         return {"message": "Page deleted"}
     except HTTPException:
         raise
@@ -609,18 +609,18 @@ async def update_school_theme(school_id: str, theme_data: Dict[str, Any]):
         result = supabase.table('schools').select('id').eq('id', school_id).execute()
         if not result.data:
             raise HTTPException(status_code=404, detail="School not found")
-        
+
         update_data = {
             "theme": theme_data.get("theme", "default"),
             "primary_color": theme_data.get("primary_color", "#1D4ED8"),
             "secondary_color": theme_data.get("secondary_color", "#FBBF24")
         }
-        
+
         result = supabase.table('schools').update(update_data).eq('id', school_id).select().execute()
-        
+
         if not result.data:
             raise HTTPException(status_code=500, detail="Failed to update school theme")
-        
+
         updated_school = result.data[0] if isinstance(result.data, list) else result.data
         return updated_school
     except HTTPException:

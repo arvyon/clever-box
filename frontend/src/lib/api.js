@@ -2,8 +2,19 @@ import axios from 'axios';
 import { supabase } from './supabase';
 
 // Backend URL for custom endpoints (templates, themes, seed, upload)
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:8000');
-const API_BASE = BACKEND_URL ? `${BACKEND_URL}/api` : '/api';
+// Fixed: Always use the Railway backend URL
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "https://clever-box-backend.up.railway.app";
+// Ensure BACKEND_URL doesn't have trailing slash and construct API_BASE properly
+const cleanBackendUrl = BACKEND_URL?.replace(/\/$/, '');
+// Always use absolute URL when BACKEND_URL is provided
+const API_BASE = cleanBackendUrl ? `${cleanBackendUrl}/api` : '/api';
+
+// Log the API base URL for debugging (remove in production)
+if (process.env.NODE_ENV === 'development') {
+  console.log('API Base URL:', API_BASE);
+  console.log('Backend URL:', BACKEND_URL);
+  console.log('Clean Backend URL:', cleanBackendUrl);
+}
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -18,6 +29,17 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  // Log the full URL in development for debugging
+  if (process.env.NODE_ENV === 'development') {
+    const fullUrl = config.baseURL && !config.url?.startsWith('http')
+      ? `${config.baseURL}${config.url}`
+      : config.url || config.baseURL;
+    console.log('Making API request to:', fullUrl);
+    console.log('Base URL:', config.baseURL);
+    console.log('Request URL:', config.url);
+  }
+
   return config;
 });
 
@@ -39,7 +61,7 @@ export const getSchools = async () => {
     .select('*')
     .order('created_at', { ascending: false })
     .limit(100);
-  
+
   if (error) throw error;
   return data || [];
 };
@@ -50,7 +72,7 @@ export const getSchool = async (id) => {
     .select('*')
     .eq('id', id)
     .single();
-  
+
   if (error) throw error;
   return data;
 };
@@ -61,7 +83,7 @@ export const createSchool = async (schoolData) => {
     .insert(schoolData)
     .select()
     .single();
-  
+
   if (error) throw error;
   return data;
 };
@@ -73,7 +95,7 @@ export const updateSchool = async (id, schoolData) => {
     .eq('id', id)
     .select()
     .single();
-  
+
   if (error) throw error;
   return data;
 };
@@ -83,7 +105,7 @@ export const deleteSchool = async (id) => {
     .from('schools')
     .delete()
     .eq('id', id);
-  
+
   if (error) throw error;
   return { message: 'School deleted' };
 };
@@ -95,20 +117,20 @@ export const getPages = async (schoolId) => {
     .select('*')
     .order('created_at', { ascending: false })
     .limit(100);
-  
+
   if (schoolId) {
     query = query.eq('school_id', schoolId);
   }
-  
+
   const { data, error } = await query;
-  
+
   if (error) throw error;
-  
+
   // Parse components from JSONB if it's a string
   return (data || []).map(page => ({
     ...page,
-    components: typeof page.components === 'string' 
-      ? JSON.parse(page.components) 
+    components: typeof page.components === 'string'
+      ? JSON.parse(page.components)
       : page.components
   }));
 };
@@ -119,14 +141,14 @@ export const getPage = async (id) => {
     .select('*')
     .eq('id', id)
     .single();
-  
+
   if (error) throw error;
-  
+
   // Parse components from JSONB if it's a string
   return {
     ...data,
-    components: typeof data.components === 'string' 
-      ? JSON.parse(data.components) 
+    components: typeof data.components === 'string'
+      ? JSON.parse(data.components)
       : data.components
   };
 };
@@ -135,24 +157,24 @@ export const createPage = async (pageData) => {
   // Convert components array to JSON string for JSONB storage
   const pageDataWithJson = {
     ...pageData,
-    components: typeof pageData.components === 'string' 
-      ? pageData.components 
+    components: typeof pageData.components === 'string'
+      ? pageData.components
       : JSON.stringify(pageData.components || [])
   };
-  
+
   const { data, error } = await supabase
     .from('pages')
     .insert(pageDataWithJson)
     .select()
     .single();
-  
+
   if (error) throw error;
-  
+
   // Parse components back from JSONB
   return {
     ...data,
-    components: typeof data.components === 'string' 
-      ? JSON.parse(data.components) 
+    components: typeof data.components === 'string'
+      ? JSON.parse(data.components)
       : data.components
   };
 };
@@ -161,25 +183,25 @@ export const updatePage = async (id, pageData) => {
   // Convert components array to JSON string if present
   const updateData = { ...pageData };
   if (updateData.components !== undefined) {
-    updateData.components = typeof updateData.components === 'string' 
-      ? updateData.components 
+    updateData.components = typeof updateData.components === 'string'
+      ? updateData.components
       : JSON.stringify(updateData.components);
   }
-  
+
   const { data, error } = await supabase
     .from('pages')
     .update(updateData)
     .eq('id', id)
     .select()
     .single();
-  
+
   if (error) throw error;
-  
+
   // Parse components back from JSONB
   return {
     ...data,
-    components: typeof data.components === 'string' 
-      ? JSON.parse(data.components) 
+    components: typeof data.components === 'string'
+      ? JSON.parse(data.components)
       : data.components
   };
 };
@@ -189,7 +211,7 @@ export const deletePage = async (id) => {
     .from('pages')
     .delete()
     .eq('id', id);
-  
+
   if (error) throw error;
   return { message: 'Page deleted' };
 };
@@ -203,11 +225,20 @@ export const getComponentTemplates = async () => {
 // School-specific components/widgets
 export const getSchoolComponents = async (schoolId) => {
   try {
-    const response = await api.get(`/editor/${schoolId}/components`);
+    const url = `/editor/${schoolId}/components`;
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Fetching school components from:', `${api.defaults.baseURL}${url}`);
+    }
+    const response = await api.get(url);
     return response.data;
   } catch (err) {
     // Fallback to global templates if school-specific fails
     console.warn('Failed to load school components, using global templates:', err);
+    if (err.response) {
+      console.warn('Response status:', err.response.status);
+      console.warn('Response data:', err.response.data);
+      console.warn('Request URL:', err.config?.url);
+    }
     return getComponentTemplates();
   }
 };
@@ -221,11 +252,20 @@ export const getThemes = async () => {
 // School-specific themes
 export const getSchoolThemes = async (schoolId) => {
   try {
-    const response = await api.get(`/editor/${schoolId}/themes`);
+    const url = `/editor/${schoolId}/themes`;
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Fetching school themes from:', `${api.defaults.baseURL}${url}`);
+    }
+    const response = await api.get(url);
     return response.data;
   } catch (err) {
     // Fallback to global themes if school-specific fails
     console.warn('Failed to load school themes, using global themes:', err);
+    if (err.response) {
+      console.warn('Response status:', err.response.status);
+      console.warn('Response data:', err.response.data);
+      console.warn('Request URL:', err.config?.url);
+    }
     return getThemes();
   }
 };
@@ -237,14 +277,14 @@ export const updateSchoolTheme = async (schoolId, themeData) => {
     primary_color: themeData.primary_color || '#1D4ED8',
     secondary_color: themeData.secondary_color || '#FBBF24'
   };
-  
+
   const { data, error } = await supabase
     .from('schools')
     .update(updateData)
     .eq('id', schoolId)
     .select()
     .single();
-  
+
   if (error) throw error;
   return data;
 };
@@ -256,12 +296,12 @@ export const uploadImage = async (file) => {
   if (!allowedTypes.includes(file.type)) {
     throw new Error('Invalid file type. Only JPEG, PNG, GIF, WebP allowed.');
   }
-  
+
   // Generate unique filename
   const fileExt = file.name.split('.').pop();
   const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
   const filePath = `uploads/${fileName}`;
-  
+
   // Upload to Supabase Storage
   const { data, error } = await supabase.storage
     .from('uploads')
@@ -269,14 +309,14 @@ export const uploadImage = async (file) => {
       cacheControl: '3600',
       upsert: false
     });
-  
+
   if (error) throw error;
-  
+
   // Get public URL
   const { data: { publicUrl } } = supabase.storage
     .from('uploads')
     .getPublicUrl(filePath);
-  
+
   return {
     url: publicUrl,
     filename: fileName,
