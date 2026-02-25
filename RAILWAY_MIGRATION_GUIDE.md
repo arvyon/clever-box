@@ -77,7 +77,7 @@ Railway will create a project and attempt to auto-detect services. We'll configu
      ```
      npm install --legacy-peer-deps && DISABLE_ESLINT_PLUGIN=true GENERATE_SOURCEMAP=false npm run build
      ```
-   - **Start Command**: 
+   - **Start Command**:
      ```
      npx serve -s build -l $PORT
      ```
@@ -90,6 +90,11 @@ Railway will create a project and attempt to auto-detect services. We'll configu
      - `REACT_APP_SUPABASE_ANON_KEY` = Your Supabase anon/public key
      - `REACT_APP_BACKEND_URL` = (Leave empty for now, we'll set after backend deploys)
    - **Note**: Get these from Supabase Dashboard → Settings → API
+
+8. **Verify Node.js Version:**
+   - Railway will automatically detect Node.js 20 from `.nvmrc` file in `frontend/` directory
+   - The `nixpacks.toml` file also specifies Node 20
+   - If build still fails with Node version errors, check build logs to confirm Node 20 is being used
 
 8. **Configure Domain:**
    - Go to **"Settings"** → **"Networking"**
@@ -108,7 +113,7 @@ Railway will create a project and attempt to auto-detect services. We'll configu
      ```
      pip install -r requirements.txt
      ```
-   - **Start Command**: 
+   - **Start Command**:
      ```
      uvicorn server:app --host 0.0.0.0 --port $PORT
      ```
@@ -179,7 +184,7 @@ Railway will create a project and attempt to auto-detect services. We'll configu
 
 **CORS Errors:**
 - **Symptom**: Browser console shows CORS errors
-- **Solution**: 
+- **Solution**:
   - Verify `FRONTEND_URL` in backend matches frontend domain exactly (including `https://`)
   - Check backend logs for CORS configuration
   - Ensure no trailing slashes in URLs
@@ -194,7 +199,7 @@ Railway will create a project and attempt to auto-detect services. We'll configu
 
 **Port Binding Errors:**
 - **Symptom**: Service fails to start, port errors in logs
-- **Solution**: 
+- **Solution**:
   - Ensure using `$PORT` environment variable (Railway provides this)
   - Backend: `uvicorn server:app --host 0.0.0.0 --port $PORT`
   - Frontend: `npx serve -s build -l $PORT`
@@ -222,6 +227,16 @@ Railway will create a project and attempt to auto-detect services. We'll configu
   - Check storage policies allow INSERT operations
   - Verify backend uses service role key (not anon key)
   - Check file size limits in bucket settings
+
+**Node.js Version Incompatibility:**
+- **Symptom**: Build fails with error like `The engine "node" is incompatible with this module. Expected version ">=20.0.0". Got "18.x.x"`
+- **Solution**:
+  - Verify `.nvmrc` file exists in `frontend/` directory with content `20`
+  - Check `frontend/package.json` has `"engines": { "node": ">=20.0.0" }`
+  - Verify `frontend/nixpacks.toml` specifies `nodejs-20_x`
+  - Railway should auto-detect Node 20 from these files
+  - If still using Node 18, manually set environment variable `NIXPACKS_NODE_VERSION=20` in Railway dashboard
+  - Redeploy the service after making changes
 
 ## Environment Variables Reference
 
