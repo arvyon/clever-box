@@ -339,7 +339,7 @@ async def upload_image(file: UploadFile = File(...)):
 
     # Read file content
     file_content = await file.read()
-    
+
     # Generate unique filename
     ext = file.filename.split(".")[-1] if "." in file.filename else "jpg"
     filename = f"{uuid.uuid4()}.{ext}"
@@ -357,15 +357,15 @@ async def upload_image(file: UploadFile = File(...)):
                 "upsert": False
             }
         )
-        
+
         # Check for errors (Python client returns data/error tuple)
         if hasattr(result, 'error') and result.error:
             log_error(f"Supabase Storage upload error: {result.error}")
             raise HTTPException(status_code=500, detail=f"Failed to upload image: {result.error}")
-        
+
         # Get public URL
         public_url_result = supabase.storage.from_("uploads").get_public_url(file_path)
-        
+
         # Python client returns a response object with data attribute
         if hasattr(public_url_result, 'data'):
             public_url = public_url_result.data.get("publicUrl")
@@ -374,10 +374,10 @@ async def upload_image(file: UploadFile = File(...)):
         else:
             # Fallback: construct URL manually
             public_url = f"{supabase_url}/storage/v1/object/public/uploads/{file_path}"
-        
+
         if not public_url:
             raise HTTPException(status_code=500, detail="Failed to get public URL")
-        
+
         log_info(f"Image uploaded successfully: {public_url}")
         return {
             "url": public_url,
@@ -445,6 +445,110 @@ async def get_themes():
         ]
     }
 
+# ============ SCHOOL-SPECIFIC COMPONENTS & THEMES ============
+
+@api_router.get("/editor/{school_id}/components")
+async def get_school_components(school_id: str):
+    """Get components/widgets for a specific school"""
+    try:
+        result = supabase.table('schools').select('metadata').eq('id', school_id).single().execute()
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail="School not found")
+
+        metadata = result.data.get('metadata', {})
+        components = metadata.get('components', None)
+
+        # If no school-specific components, return global templates
+        if components is None:
+            # Return the same structure as templates/components but from metadata
+            templates_result = await get_component_templates()
+            return templates_result
+
+        return {
+            "widgets": components.get('widgets', []),
+            "categories": components.get('categories', [])
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        log_error(f"Error fetching school components: {e}", e)
+        # Fallback to global templates
+        templates_result = await get_component_templates()
+        return templates_result
+
+@api_router.get("/editor/{school_id}/themes")
+async def get_school_themes(school_id: str):
+    """Get themes for a specific school"""
+    try:
+        result = supabase.table('schools').select('metadata').eq('id', school_id).single().execute()
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail="School not found")
+
+        metadata = result.data.get('metadata', {})
+        themes = metadata.get('themes', None)
+
+        # If no school-specific themes, return global themes
+        if themes is None:
+            themes_result = await get_themes()
+            return themes_result
+
+        return {"themes": themes}
+    except HTTPException:
+        raise
+    except Exception as e:
+        log_error(f"Error fetching school themes: {e}", e)
+        # Fallback to global themes
+        themes_result = await get_themes()
+        return themes_result
+
+@api_router.put("/editor/{school_id}/components")
+async def update_school_components(school_id: str, components_data: Dict[str, Any]):
+    """Update components/widgets for a specific school"""
+    try:
+        # Get current school data
+        result = supabase.table('schools').select('metadata').eq('id', school_id).single().execute()
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail="School not found")
+
+        metadata = result.data.get('metadata', {})
+        metadata['components'] = components_data
+
+        # Update school metadata
+        supabase.table('schools').update({'metadata': metadata}).eq('id', school_id).execute()
+
+        return {"message": "Components updated successfully", "components": components_data}
+    except HTTPException:
+        raise
+    except Exception as e:
+        log_error(f"Error updating school components: {e}", e)
+        raise HTTPException(status_code=500, detail=f"Failed to update components: {str(e)}")
+
+@api_router.put("/editor/{school_id}/themes")
+async def update_school_themes(school_id: str, themes_data: Dict[str, Any]):
+    """Update themes for a specific school"""
+    try:
+        # Get current school data
+        result = supabase.table('schools').select('metadata').eq('id', school_id).single().execute()
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail="School not found")
+
+        metadata = result.data.get('metadata', {})
+        metadata['themes'] = themes_data.get('themes', [])
+
+        # Update school metadata
+        supabase.table('schools').update({'metadata': metadata}).eq('id', school_id).execute()
+
+        return {"message": "Themes updated successfully", "themes": metadata['themes']}
+    except HTTPException:
+        raise
+    except Exception as e:
+        log_error(f"Error updating school themes: {e}", e)
+        raise HTTPException(status_code=500, detail=f"Failed to update themes: {str(e)}")
+
 # ============ SEED DATA ============
 
 @api_router.post("/seed")
@@ -456,7 +560,11 @@ async def seed_data():
         if existing.data:
             return {"message": "Data already seeded"}
 
-        # Create demo school
+        # Get component templates and themes for seeding
+        templates_data = await get_component_templates()
+        themes_data = await get_themes()
+
+        # Create demo school with components and themes in metadata
         school = School(
             id="demo-school-1",
             name="Sunshine Elementary",
@@ -467,6 +575,11 @@ async def seed_data():
         )
         doc = school.model_dump()
         doc['created_at'] = doc['created_at'].isoformat()
+        # Add components and themes to metadata
+        doc['metadata'] = {
+            'components': templates_data,
+            'themes': themes_data.get('themes', [])
+        }
         supabase.table('schools').insert(doc).execute()
 
         # Create demo page with components

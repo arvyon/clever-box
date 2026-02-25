@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { EditorProvider, useEditor } from '../context/EditorContext';
-import { getPage, getSchool, updatePage, getComponentTemplates, getThemes, updateSchoolTheme } from '../lib/api';
+import { getPage, getSchool, updatePage, getComponentTemplates, getThemes, getSchoolComponents, getSchoolThemes, updateSchoolTheme } from '../lib/api';
 import { WidgetsSidebar } from '../components/editor/WidgetsSidebar';
 import { EditorCanvas } from '../components/editor/EditorCanvas';
 import { PropertiesPanel } from '../components/editor/PropertiesPanel';
@@ -62,11 +62,27 @@ function EditorContent() {
           console.error('Failed to load page:', err);
           return null;
         }),
-        getComponentTemplates().catch(err => {
+        // Use school-specific components if schoolId is available, otherwise fallback to global
+        schoolId ? getSchoolComponents(schoolId).catch(async (err) => {
+          console.error('Failed to load school components:', err);
+          try {
+            return await getComponentTemplates();
+          } catch {
+            return { widgets: [], categories: [] };
+          }
+        }) : getComponentTemplates().catch(err => {
           console.error('Failed to load templates:', err);
           return { widgets: [], categories: [] };
         }),
-        getThemes().catch(err => {
+        // Use school-specific themes if schoolId is available, otherwise fallback to global
+        schoolId ? getSchoolThemes(schoolId).catch(async (err) => {
+          console.error('Failed to load school themes:', err);
+          try {
+            return await getThemes();
+          } catch {
+            return { themes: [] };
+          }
+        }) : getThemes().catch(err => {
           console.error('Failed to load themes:', err);
           return { themes: [] };
         })

@@ -10,7 +10,8 @@
     "dev:backend": "cd backend && python -m uvicorn server:app --reload --host 0.0.0.0 --port 8000",
     "dev:frontend": "cd frontend && npm start",
     "install:all": "npm install && cd frontend && npm install --legacy-peer-deps && cd ../backend && pip install -r requirements.txt",
-    "install": "npm install && cd frontend && npm install --legacy-peer-deps",
+    "install": "echo 'Skipping install script - run manually in frontend directory'",
+    "install:frontend": "cd frontend && npm install --legacy-peer-deps",
     "build": "cd frontend && npm run build",
     "build:backend": "cd backend && pip install -r requirements.txt",
     "test": "cd frontend && npm test"

@@ -194,16 +194,40 @@ export const deletePage = async (id) => {
   return { message: 'Page deleted' };
 };
 
-// Templates
+// Templates - Global (fallback)
 export const getComponentTemplates = async () => {
   const response = await api.get('/templates/components');
   return response.data;
 };
 
-// Themes
+// School-specific components/widgets
+export const getSchoolComponents = async (schoolId) => {
+  try {
+    const response = await api.get(`/editor/${schoolId}/components`);
+    return response.data;
+  } catch (err) {
+    // Fallback to global templates if school-specific fails
+    console.warn('Failed to load school components, using global templates:', err);
+    return getComponentTemplates();
+  }
+};
+
+// Themes - Global (fallback)
 export const getThemes = async () => {
   const response = await api.get('/themes');
   return response.data;
+};
+
+// School-specific themes
+export const getSchoolThemes = async (schoolId) => {
+  try {
+    const response = await api.get(`/editor/${schoolId}/themes`);
+    return response.data;
+  } catch (err) {
+    // Fallback to global themes if school-specific fails
+    console.warn('Failed to load school themes, using global themes:', err);
+    return getThemes();
+  }
 };
 
 export const updateSchoolTheme = async (schoolId, themeData) => {
