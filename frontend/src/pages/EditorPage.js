@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { EditorProvider, useEditor } from '../context/EditorContext';
-import { getPage, getSchool, updatePage, getComponentTemplates, getThemes, updateSchoolTheme, uploadImage } from '../lib/api';
+import { getPage, getSchool, updatePage, getComponentTemplates, getThemes, updateSchoolTheme } from '../lib/api';
 import { WidgetsSidebar } from '../components/editor/WidgetsSidebar';
 import { EditorCanvas } from '../components/editor/EditorCanvas';
 import { PropertiesPanel } from '../components/editor/PropertiesPanel';
 import { EditorToolbar } from '../components/editor/EditorToolbar';
 import { ThemeSelector } from '../components/editor/ThemeSelector';
-import { DndContext, DragOverlay, pointerWithin, closestCenter } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
+import { DndContext, DragOverlay, pointerWithin } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { toast } from 'sonner';
-import { 
-  Image, Type, Heading, MousePointerClick, Grid3X3, Images, 
-  Bell, Calendar, Users, Mail, PanelBottom, SeparatorHorizontal 
+import {
+  Image, Type, Heading, MousePointerClick, Grid3X3, Images,
+  Bell, Calendar, Users, Mail, PanelBottom, SeparatorHorizontal
 } from 'lucide-react';
 
 const iconMap = {
@@ -25,16 +25,16 @@ const iconMap = {
 function EditorContent() {
   const { schoolId, pageId } = useParams();
   const navigate = useNavigate();
-  const { 
-    components, 
-    loadComponents, 
-    addComponent, 
+  const {
+    components,
+    loadComponents,
+    addComponent,
     moveComponent,
     selectedComponent,
     setHasChanges,
-    hasChanges 
+    hasChanges
   } = useEditor();
-  
+
   const [school, setSchool] = useState(null);
   const [page, setPage] = useState(null);
   const [templates, setTemplates] = useState({ widgets: [], categories: [] });
@@ -54,31 +54,81 @@ function EditorContent() {
     setLoading(true);
     try {
       const [schoolData, pageData, templatesData, themesData] = await Promise.all([
-        getSchool(schoolId),
-        getPage(pageId),
-        getComponentTemplates(),
-        getThemes()
+        getSchool(schoolId).catch(err => {
+          console.error('Failed to load school:', err);
+          return null;
+        }),
+        getPage(pageId).catch(err => {
+          console.error('Failed to load page:', err);
+          return null;
+        }),
+        getComponentTemplates().catch(err => {
+          console.error('Failed to load templates:', err);
+          return { widgets: [], categories: [] };
+        }),
+        getThemes().catch(err => {
+          console.error('Failed to load themes:', err);
+          return { themes: [] };
+        })
       ]);
-      
-      setSchool(schoolData);
-      setPage(pageData);
-      setTemplates(templatesData);
-      setThemes(themesData.themes || []);
-      loadComponents(pageData.components || []);
+
+      if (schoolData) {
+        setSchool(schoolData);
+      } else {
+        toast.error('Failed to load school data');
+        navigate('/dashboard');
+        return;
+      }
+
+      if (pageData) {
+        setPage(pageData);
+        // Ensure components is always an array
+        let components = [];
+        if (Array.isArray(pageData.components)) {
+          components = pageData.components;
+        } else if (pageData.components) {
+          try {
+            if (typeof pageData.components === 'string') {
+              components = JSON.parse(pageData.components);
+            } else {
+              components = pageData.components;
+            }
+          } catch (parseError) {
+            console.error('Failed to parse components:', parseError);
+            components = [];
+          }
+        }
+        loadComponents(components || []);
+      } else {
+        toast.error('Failed to load page data');
+        navigate('/dashboard');
+        return;
+      }
+
+      if (templatesData) {
+        setTemplates(templatesData);
+      }
+
+      if (themesData && themesData.themes) {
+        setThemes(themesData.themes);
+      } else if (Array.isArray(themesData)) {
+        setThemes(themesData);
+      }
     } catch (err) {
       console.error('Failed to load editor data:', err);
       toast.error('Failed to load page data');
+      navigate('/dashboard');
     } finally {
       setLoading(false);
     }
   };
 
   const handleSave = useCallback(async () => {
-    if (!pageId || saving) return;
-    
+    if (!pageId || saving || !components) return;
+
     setSaving(true);
     try {
-      await updatePage(pageId, { components });
+      await updatePage(pageId, { components: Array.isArray(components) ? components : [] });
       setHasChanges(false);
       toast.success('Page saved successfully!');
     } catch (err) {
@@ -90,11 +140,14 @@ function EditorContent() {
   }, [pageId, components, saving, setHasChanges]);
 
   const handlePublish = useCallback(async () => {
-    if (!pageId) return;
-    
+    if (!pageId || !components) return;
+
     setSaving(true);
     try {
-      await updatePage(pageId, { components, is_published: true });
+      await updatePage(pageId, {
+        components: Array.isArray(components) ? components : [],
+        is_published: true
+      });
       setHasChanges(false);
       toast.success('Page published successfully!');
     } catch (err) {
@@ -108,7 +161,7 @@ function EditorContent() {
   const handleThemeChange = async (themeId) => {
     const theme = themes.find(t => t.id === themeId);
     if (!theme || !schoolId) return;
-    
+
     try {
       await updateSchoolTheme(schoolId, {
         theme: themeId,
@@ -130,7 +183,7 @@ function EditorContent() {
 
   const handleDragStart = (event) => {
     const { active } = event;
-    
+
     // Check if it's a widget from sidebar
     const widget = templates.widgets.find(w => w.type === active.id);
     if (widget) {
@@ -147,7 +200,7 @@ function EditorContent() {
     const { active, over } = event;
     setActiveWidget(null);
     setActiveId(null);
-    
+
     if (!over) return;
 
     // Adding new widget from sidebar
@@ -157,12 +210,12 @@ function EditorContent() {
       toast.success(`${widget.name} added!`);
       return;
     }
-    
+
     // Reordering existing components
-    if (active.id !== over.id && !widget) {
+    if (active.id !== over.id && !widget && Array.isArray(components)) {
       const oldIndex = components.findIndex(c => c.id === active.id);
       const newIndex = components.findIndex(c => c.id === over.id);
-      
+
       if (oldIndex !== -1 && newIndex !== -1) {
         moveComponent(oldIndex, newIndex);
         toast.success('Component reordered');
@@ -181,7 +234,9 @@ function EditorContent() {
     );
   }
 
-  const sortedComponents = [...components].sort((a, b) => a.order - b.order);
+  const sortedComponents = Array.isArray(components)
+    ? [...components].sort((a, b) => (a.order || 0) - (b.order || 0))
+    : [];
 
   return (
     <DndContext
@@ -191,14 +246,14 @@ function EditorContent() {
     >
       <div className="editor-layout">
         {/* Left Sidebar - Widgets */}
-        <WidgetsSidebar 
-          templates={templates} 
+        <WidgetsSidebar
+          templates={templates}
           onBack={() => navigate('/dashboard')}
         />
-        
+
         {/* Center - Canvas */}
         <div className="editor-canvas-wrapper">
-          <EditorToolbar 
+          <EditorToolbar
             school={school}
             page={page}
             onSave={handleSave}
@@ -207,19 +262,19 @@ function EditorContent() {
             hasChanges={hasChanges}
             onThemeClick={() => setShowThemeSelector(true)}
           />
-          <SortableContext 
-            items={sortedComponents.map(c => c.id)} 
+          <SortableContext
+            items={sortedComponents.map(c => c.id)}
             strategy={verticalListSortingStrategy}
           >
             <EditorCanvas templates={templates} school={school} />
           </SortableContext>
         </div>
-        
+
         {/* Right Sidebar - Properties */}
         {selectedComponent && (
           <PropertiesPanel templates={templates} />
         )}
-        
+
         {/* Theme Selector Modal */}
         {showThemeSelector && (
           <ThemeSelector
@@ -230,7 +285,7 @@ function EditorContent() {
           />
         )}
       </div>
-      
+
       {/* Drag Overlay */}
       <DragOverlay dropAnimation={{
         duration: 200,
