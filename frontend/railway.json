@@ -1,8 +1,8 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS",
-    "buildCommand": "npm install --legacy-peer-deps && DISABLE_ESLINT_PLUGIN=true GENERATE_SOURCEMAP=false npm run build"
+    "builder": "RAILPACK",
+    "buildCommand": "yarn install --frozen-lockfile --legacy-peer-deps && DISABLE_ESLINT_PLUGIN=true GENERATE_SOURCEMAP=false yarn build"
   },
   "deploy": {
     "startCommand": "npx serve -s build -l $PORT",

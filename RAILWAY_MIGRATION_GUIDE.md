@@ -73,14 +73,17 @@ Railway will create a project and attempt to auto-detect services. We'll configu
 6. **Configure Frontend Service:**
    - **Service Name**: `clever-box-frontend` (or your preferred name)
    - **Root Directory**: Click **"Settings"** → **"Root Directory"** → Set to `frontend`
-   - **Build Command**: Railway auto-detects, but verify it's:
+   - **Builder**: Should show "Railpack" (auto-detected, recommended - NOT Nixpacks)
+   - **Node Version**: Should auto-detect Node 20 from `.nvmrc` (verify in Settings → Build, select Node 20 if showing 22)
+   - **Build Command**: Can be left empty (uses `railway.json`) OR set to:
      ```
-     npm install --legacy-peer-deps && DISABLE_ESLINT_PLUGIN=true GENERATE_SOURCEMAP=false npm run build
+     yarn install --frozen-lockfile --legacy-peer-deps && DISABLE_ESLINT_PLUGIN=true GENERATE_SOURCEMAP=false yarn build
      ```
    - **Start Command**:
      ```
      npx serve -s build -l $PORT
      ```
+   - **Watch Paths**: Set to `/frontend/**` (for monorepo structure)
    - **Healthcheck Path**: `/` (optional, in Settings → Healthcheck)
 
 7. **Set Environment Variables:**
@@ -92,11 +95,13 @@ Railway will create a project and attempt to auto-detect services. We'll configu
    - **Note**: Get these from Supabase Dashboard → Settings → API
 
 8. **Verify Node.js Version:**
-   - Railway will automatically detect Node.js 20 from `.nvmrc` file in `frontend/` directory
-   - The `nixpacks.toml` file also specifies Node 20
+   - Railway (Railpack) will automatically detect Node.js 20 from `.nvmrc` file in `frontend/` directory
+   - **Important**: Check Settings → Build to verify Node version shows 20 (not 22)
+   - If showing Node 22, manually select Node 20 from the dropdown
    - If build still fails with Node version errors, check build logs to confirm Node 20 is being used
+   - **Note**: `nixpacks.toml` file has been removed (not needed with Railpack builder)
 
-8. **Configure Domain:**
+9. **Configure Domain:**
    - Go to **"Settings"** → **"Networking"**
    - Click **"Generate Domain"** (or add custom domain)
    - Note the generated URL (e.g., `clever-box-frontend-production.up.railway.app`)
@@ -229,14 +234,22 @@ Railway will create a project and attempt to auto-detect services. We'll configu
   - Check file size limits in bucket settings
 
 **Node.js Version Incompatibility:**
-- **Symptom**: Build fails with error like `The engine "node" is incompatible with this module. Expected version ">=20.0.0". Got "18.x.x"`
+- **Symptom**: Build fails with error like `The engine "node" is incompatible with this module. Expected version ">=20.0.0". Got "18.x.x"` or `Got "22.x.x"`
 - **Solution**:
   - Verify `.nvmrc` file exists in `frontend/` directory with content `20`
   - Check `frontend/package.json` has `"engines": { "node": ">=20.0.0" }`
-  - Verify `frontend/nixpacks.toml` specifies `nodejs-20_x`
-  - Railway should auto-detect Node 20 from these files
-  - If still using Node 18, manually set environment variable `NIXPACKS_NODE_VERSION=20` in Railway dashboard
+  - In Railway Dashboard → Settings → Build, manually select Node 20 from the Node version dropdown
+  - Railway (Railpack) should auto-detect Node 20 from `.nvmrc`, but UI selection ensures correct version
   - Redeploy the service after making changes
+
+**Nixpacks/Railpack Build Errors:**
+- **Symptom**: Build fails with Nix derivation errors or builder conflicts
+- **Solution**:
+  - Ensure `frontend/nixpacks.toml` is **deleted** (not needed with Railpack)
+  - Verify `frontend/railway.json` specifies `"builder": "RAILPACK"`
+  - Check build command uses `yarn` (not `npm`) since project uses yarn
+  - Clear build cache in Railway Dashboard → Settings → Build
+  - Redeploy after configuration changes
 
 ## Environment Variables Reference
 
