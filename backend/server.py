@@ -1,5 +1,4 @@
 from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File
-from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -7,15 +6,13 @@ from starlette.requests import Request
 from supabase import create_client, Client
 import os
 import logging
-import base64
-import shutil
+import traceback
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone
 import json
-import traceback
 
 # Configure logging
 logging.basicConfig(
@@ -40,10 +37,6 @@ log_info("=" * 60)
 
 ROOT_DIR = Path(__file__).parent
 log_info(f"Root directory: {ROOT_DIR}")
-
-UPLOAD_DIR = ROOT_DIR / "uploads"
-UPLOAD_DIR.mkdir(exist_ok=True)
-log_info(f"Upload directory: {UPLOAD_DIR}")
 
 log_info("Loading environment variables...")
 load_dotenv(ROOT_DIR / '.env')
@@ -70,7 +63,7 @@ else:
 if not supabase_url or not supabase_key:
     error_msg = (
         "Missing required environment variables: SUPABASE_URL and SUPABASE_KEY must be set. "
-        "Please set them in Vercel Dashboard → Settings → Environment Variables"
+        "Please set them in Railway Dashboard → Settings → Environment Variables"
     )
     log_error(error_msg)
     raise ValueError(error_msg)
@@ -79,16 +72,6 @@ log_info("Creating Supabase client...")
 try:
     supabase: Client = create_client(supabase_url, supabase_key)
     log_info("✓ Supabase client created successfully")
-    
-    # Test connection by trying to access a table (this will fail gracefully if tables don't exist)
-    try:
-        log_info("Testing Supabase connection...")
-        # Just check if client is initialized, don't make actual query
-        log_info("✓ Supabase client initialized")
-    except Exception as test_error:
-        log_error(f"Supabase connection test failed: {test_error}", test_error)
-        # Don't raise - client might still work for actual queries
-        
 except Exception as e:
     log_error(f"Failed to create Supabase client: {e}", e)
     raise
@@ -98,12 +81,7 @@ app = FastAPI(title="CleverBox API", version="1.0.0")
 api_router = APIRouter(prefix="/api")
 log_info("✓ FastAPI app and router created")
 
-# Serve uploaded files
-log_info("Mounting static files directory...")
-app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
-log_info(f"✓ Static files mounted at /uploads")
-
-# ============ MODELS ============
+# ============ MODELS (for seed endpoint) ============
 
 class ComponentData(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -133,25 +111,6 @@ class School(BaseModel):
     secondary_color: str = "#FBBF24"
     theme: str = "default"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-class SchoolCreate(BaseModel):
-    name: str
-    slug: str
-    logo_url: Optional[str] = None
-    primary_color: str = "#1D4ED8"
-    secondary_color: str = "#FBBF24"
-
-class PageCreate(BaseModel):
-    school_id: str
-    name: str
-    slug: str
-    components: List[Dict[str, Any]] = []
-
-class PageUpdate(BaseModel):
-    name: Optional[str] = None
-    slug: Optional[str] = None
-    components: Optional[List[Dict[str, Any]]] = None
-    is_published: Optional[bool] = None
 
 class LoginRequest(BaseModel):
     email: str
@@ -186,147 +145,6 @@ async def get_current_user():
         "name": "Demo Admin",
         "role": "admin"
     }
-
-# ============ SCHOOL ROUTES ============
-
-@api_router.post("/schools", response_model=School)
-async def create_school(school: SchoolCreate):
-    school_obj = School(**school.model_dump())
-    doc = school_obj.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    result = supabase.table('schools').insert(doc).execute()
-    if result.data:
-        return School(**result.data[0])
-    raise HTTPException(status_code=500, detail="Failed to create school")
-
-@api_router.get("/schools", response_model=List[School])
-async def get_schools():
-    result = supabase.table('schools').select('*').limit(100).execute()
-    schools = []
-    for school in result.data:
-        if isinstance(school.get('created_at'), str):
-            school['created_at'] = datetime.fromisoformat(school['created_at'].replace('Z', '+00:00'))
-        schools.append(School(**school))
-    return schools
-
-@api_router.get("/schools/{school_id}", response_model=School)
-async def get_school(school_id: str):
-    result = supabase.table('schools').select('*').eq('id', school_id).execute()
-    if not result.data:
-        raise HTTPException(status_code=404, detail="School not found")
-    school = result.data[0]
-    if isinstance(school.get('created_at'), str):
-        school['created_at'] = datetime.fromisoformat(school['created_at'].replace('Z', '+00:00'))
-    return School(**school)
-
-@api_router.delete("/schools/{school_id}")
-async def delete_school(school_id: str):
-    # Check if school exists
-    check = supabase.table('schools').select('id').eq('id', school_id).execute()
-    if not check.data:
-        raise HTTPException(status_code=404, detail="School not found")
-    # Delete school (pages will be cascade deleted)
-    supabase.table('schools').delete().eq('id', school_id).execute()
-    return {"message": "School deleted"}
-
-# ============ PAGE ROUTES ============
-
-@api_router.post("/pages", response_model=PageData)
-async def create_page(page: PageCreate):
-    components = [ComponentData(**c) for c in page.components]
-    page_obj = PageData(
-        school_id=page.school_id,
-        name=page.name,
-        slug=page.slug,
-        components=components
-    )
-    doc = page_obj.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    doc['updated_at'] = doc['updated_at'].isoformat()
-    # Convert components to JSON for PostgreSQL
-    doc['components'] = json.dumps([c.model_dump() for c in components])
-    result = supabase.table('pages').insert(doc).execute()
-    if result.data:
-        # Parse components back from JSON
-        result.data[0]['components'] = json.loads(result.data[0]['components'])
-        return PageData(**result.data[0])
-    raise HTTPException(status_code=500, detail="Failed to create page")
-
-@api_router.get("/pages", response_model=List[PageData])
-async def get_pages(school_id: Optional[str] = None):
-    query = supabase.table('pages').select('*')
-    if school_id:
-        query = query.eq('school_id', school_id)
-    result = query.limit(100).execute()
-    pages = []
-    for page in result.data:
-        if isinstance(page.get('created_at'), str):
-            page['created_at'] = datetime.fromisoformat(page['created_at'].replace('Z', '+00:00'))
-        if isinstance(page.get('updated_at'), str):
-            page['updated_at'] = datetime.fromisoformat(page['updated_at'].replace('Z', '+00:00'))
-        # Parse components from JSON
-        if isinstance(page.get('components'), str):
-            page['components'] = json.loads(page['components'])
-        pages.append(PageData(**page))
-    return pages
-
-@api_router.get("/pages/{page_id}", response_model=PageData)
-async def get_page(page_id: str):
-    result = supabase.table('pages').select('*').eq('id', page_id).execute()
-    if not result.data:
-        raise HTTPException(status_code=404, detail="Page not found")
-    page = result.data[0]
-    if isinstance(page.get('created_at'), str):
-        page['created_at'] = datetime.fromisoformat(page['created_at'].replace('Z', '+00:00'))
-    if isinstance(page.get('updated_at'), str):
-        page['updated_at'] = datetime.fromisoformat(page['updated_at'].replace('Z', '+00:00'))
-    # Parse components from JSON
-    if isinstance(page.get('components'), str):
-        page['components'] = json.loads(page['components'])
-    return PageData(**page)
-
-@api_router.put("/pages/{page_id}", response_model=PageData)
-async def update_page(page_id: str, page_update: PageUpdate):
-    # Check if page exists
-    check = supabase.table('pages').select('id').eq('id', page_id).execute()
-    if not check.data:
-        raise HTTPException(status_code=404, detail="Page not found")
-
-    update_data = {}
-    if page_update.name is not None:
-        update_data['name'] = page_update.name
-    if page_update.slug is not None:
-        update_data['slug'] = page_update.slug
-    if page_update.components is not None:
-        # Convert components to JSON for PostgreSQL
-        update_data['components'] = json.dumps(page_update.components)
-    if page_update.is_published is not None:
-        update_data['is_published'] = page_update.is_published
-
-    # updated_at will be auto-updated by trigger
-
-    result = supabase.table('pages').update(update_data).eq('id', page_id).execute()
-
-    if result.data:
-        updated = result.data[0]
-        if isinstance(updated.get('created_at'), str):
-            updated['created_at'] = datetime.fromisoformat(updated['created_at'].replace('Z', '+00:00'))
-        if isinstance(updated.get('updated_at'), str):
-            updated['updated_at'] = datetime.fromisoformat(updated['updated_at'].replace('Z', '+00:00'))
-        # Parse components from JSON
-        if isinstance(updated.get('components'), str):
-            updated['components'] = json.loads(updated['components'])
-        return PageData(**updated)
-    raise HTTPException(status_code=500, detail="Failed to update page")
-
-@api_router.delete("/pages/{page_id}")
-async def delete_page(page_id: str):
-    # Check if page exists
-    check = supabase.table('pages').select('id').eq('id', page_id).execute()
-    if not check.data:
-        raise HTTPException(status_code=404, detail="Page not found")
-    supabase.table('pages').delete().eq('id', page_id).execute()
-    return {"message": "Page deleted"}
 
 # ============ TEMPLATE COMPONENTS ============
 
@@ -509,30 +327,68 @@ async def get_component_templates():
         ]
     }
 
-# ============ IMAGE UPLOAD ============
+# ============ IMAGE UPLOAD (Supabase Storage) ============
 
 @api_router.post("/upload")
 async def upload_image(file: UploadFile = File(...)):
-    """Upload an image and return the URL"""
+    """Upload an image to Supabase Storage and return the URL"""
     # Validate file type
     allowed_types = ["image/jpeg", "image/png", "image/gif", "image/webp"]
     if file.content_type not in allowed_types:
         raise HTTPException(status_code=400, detail="Invalid file type. Only JPEG, PNG, GIF, WebP allowed.")
 
+    # Read file content
+    file_content = await file.read()
+    
     # Generate unique filename
     ext = file.filename.split(".")[-1] if "." in file.filename else "jpg"
     filename = f"{uuid.uuid4()}.{ext}"
-    filepath = UPLOAD_DIR / filename
+    file_path = f"uploads/{filename}"
 
-    # Save file
-    with open(filepath, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    # Return the URL (using the backend URL)
-    return {
-        "url": f"/uploads/{filename}",
-        "filename": filename
-    }
+    try:
+        # Upload to Supabase Storage
+        # The Python client uses a different API than JavaScript
+        result = supabase.storage.from_("uploads").upload(
+            file_path,
+            file_content,
+            file_options={
+                "content-type": file.content_type,
+                "cache-control": "3600",
+                "upsert": False
+            }
+        )
+        
+        # Check for errors (Python client returns data/error tuple)
+        if hasattr(result, 'error') and result.error:
+            log_error(f"Supabase Storage upload error: {result.error}")
+            raise HTTPException(status_code=500, detail=f"Failed to upload image: {result.error}")
+        
+        # Get public URL
+        public_url_result = supabase.storage.from_("uploads").get_public_url(file_path)
+        
+        # Python client returns a response object with data attribute
+        if hasattr(public_url_result, 'data'):
+            public_url = public_url_result.data.get("publicUrl")
+        elif isinstance(public_url_result, dict):
+            public_url = public_url_result.get("publicUrl")
+        else:
+            # Fallback: construct URL manually
+            public_url = f"{supabase_url}/storage/v1/object/public/uploads/{file_path}"
+        
+        if not public_url:
+            raise HTTPException(status_code=500, detail="Failed to get public URL")
+        
+        log_info(f"Image uploaded successfully: {public_url}")
+        return {
+            "url": public_url,
+            "filename": filename,
+            "path": file_path
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        log_error(f"Error uploading image: {e}", e)
+        raise HTTPException(status_code=500, detail=f"Failed to upload image: {str(e)}")
 
 # ============ THEMES ============
 
@@ -589,130 +445,115 @@ async def get_themes():
         ]
     }
 
-@api_router.put("/schools/{school_id}/theme")
-async def update_school_theme(school_id: str, theme_data: Dict[str, Any]):
-    """Update school theme"""
-    # Check if school exists
-    check = supabase.table('schools').select('id').eq('id', school_id).execute()
-    if not check.data:
-        raise HTTPException(status_code=404, detail="School not found")
-
-    update_data = {
-        "theme": theme_data.get("theme", "default"),
-        "primary_color": theme_data.get("primary_color", "#1D4ED8"),
-        "secondary_color": theme_data.get("secondary_color", "#FBBF24")
-    }
-
-    result = supabase.table('schools').update(update_data).eq('id', school_id).execute()
-
-    if result.data:
-        return result.data[0]
-    raise HTTPException(status_code=500, detail="Failed to update school theme")
-
 # ============ SEED DATA ============
 
 @api_router.post("/seed")
 async def seed_data():
-    # Check if data already exists
-    existing = supabase.table('schools').select('id').limit(1).execute()
-    if existing.data:
-        return {"message": "Data already seeded"}
+    """Seed demo data into Supabase"""
+    try:
+        # Check if data already exists
+        existing = supabase.table('schools').select('id').limit(1).execute()
+        if existing.data:
+            return {"message": "Data already seeded"}
 
-    # Create demo school
-    school = School(
-        id="demo-school-1",
-        name="Sunshine Elementary",
-        slug="sunshine-elementary",
-        logo_url=None,
-        primary_color="#1D4ED8",
-        secondary_color="#FBBF24"
-    )
-    doc = school.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    supabase.table('schools').insert(doc).execute()
+        # Create demo school
+        school = School(
+            id="demo-school-1",
+            name="Sunshine Elementary",
+            slug="sunshine-elementary",
+            logo_url=None,
+            primary_color="#1D4ED8",
+            secondary_color="#FBBF24"
+        )
+        doc = school.model_dump()
+        doc['created_at'] = doc['created_at'].isoformat()
+        supabase.table('schools').insert(doc).execute()
 
-    # Create demo page with components
-    page = PageData(
-        id="demo-page-1",
-        school_id="demo-school-1",
-        name="Home",
-        slug="home",
-        is_published=True,
-        components=[
-            ComponentData(
-                id="comp-1",
-                type="hero",
-                order=0,
-                props={
-                    "title": "Welcome to Sunshine Elementary",
-                    "subtitle": "Where Every Child Shines Bright",
-                    "backgroundImage": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=2070&auto=format&fit=crop",
-                    "buttonText": "Enroll Now",
-                    "buttonLink": "#contact"
-                }
-            ),
-            ComponentData(
-                id="comp-2",
-                type="features",
-                order=1,
-                props={
-                    "title": "Why Choose Sunshine Elementary?",
-                    "features": [
-                        {"icon": "GraduationCap", "title": "Excellence in Education", "description": "Award-winning curriculum designed for success"},
-                        {"icon": "Users", "title": "Dedicated Teachers", "description": "Experienced educators who care about every student"},
-                        {"icon": "Building", "title": "Modern Facilities", "description": "State-of-the-art classrooms and sports facilities"}
-                    ]
-                }
-            ),
-            ComponentData(
-                id="comp-3",
-                type="announcements",
-                order=2,
-                props={
-                    "title": "Latest News & Updates",
-                    "items": [
-                        {"title": "Parent-Teacher Conference", "date": "Jan 15, 2026", "excerpt": "Join us for our upcoming parent-teacher conference to discuss your child's progress."},
-                        {"title": "Spring Break Schedule", "date": "Jan 10, 2026", "excerpt": "Important dates for the upcoming spring break period."},
-                        {"title": "Science Fair Winners", "date": "Jan 5, 2026", "excerpt": "Congratulations to all our talented science fair participants!"}
-                    ]
-                }
-            ),
-            ComponentData(
-                id="comp-4",
-                type="gallery",
-                order=3,
-                props={
-                    "title": "Life at Sunshine Elementary",
-                    "images": [
-                        "https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=2132&auto=format&fit=crop",
-                        "https://images.unsplash.com/photo-1427504494785-3a9ca28497b1?q=80&w=2070&auto=format&fit=crop",
-                        "https://images.unsplash.com/photo-1592280771884-f25f2b8423f5?q=80&w=1974&auto=format&fit=crop",
-                        "https://images.unsplash.com/photo-1564981797816-1043664bf78d?q=80&w=1974&auto=format&fit=crop"
-                    ]
-                }
-            ),
-            ComponentData(
-                id="comp-5",
-                type="contact",
-                order=4,
-                props={
-                    "title": "Get in Touch",
-                    "address": "123 Sunshine Lane, Happy Valley, HV 12345",
-                    "phone": "(555) 123-4567",
-                    "email": "info@sunshine-elementary.edu",
-                    "showMap": True
-                }
-            )
-        ]
-    )
-    page_doc = page.model_dump()
-    page_doc['created_at'] = page_doc['created_at'].isoformat()
-    page_doc['updated_at'] = page_doc['updated_at'].isoformat()
-    # Convert components to JSON for PostgreSQL
-    page_doc['components'] = json.dumps([c.model_dump() for c in page.components])
-    supabase.table('pages').insert(page_doc).execute()
+        # Create demo page with components
+        page = PageData(
+            id="demo-page-1",
+            school_id="demo-school-1",
+            name="Home",
+            slug="home",
+            is_published=True,
+            components=[
+                ComponentData(
+                    id="comp-1",
+                    type="hero",
+                    order=0,
+                    props={
+                        "title": "Welcome to Sunshine Elementary",
+                        "subtitle": "Where Every Child Shines Bright",
+                        "backgroundImage": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=2070&auto=format&fit=crop",
+                        "buttonText": "Enroll Now",
+                        "buttonLink": "#contact"
+                    }
+                ),
+                ComponentData(
+                    id="comp-2",
+                    type="features",
+                    order=1,
+                    props={
+                        "title": "Why Choose Sunshine Elementary?",
+                        "features": [
+                            {"icon": "GraduationCap", "title": "Excellence in Education", "description": "Award-winning curriculum designed for success"},
+                            {"icon": "Users", "title": "Dedicated Teachers", "description": "Experienced educators who care about every student"},
+                            {"icon": "Building", "title": "Modern Facilities", "description": "State-of-the-art classrooms and sports facilities"}
+                        ]
+                    }
+                ),
+                ComponentData(
+                    id="comp-3",
+                    type="announcements",
+                    order=2,
+                    props={
+                        "title": "Latest News & Updates",
+                        "items": [
+                            {"title": "Parent-Teacher Conference", "date": "Jan 15, 2026", "excerpt": "Join us for our upcoming parent-teacher conference to discuss your child's progress."},
+                            {"title": "Spring Break Schedule", "date": "Jan 10, 2026", "excerpt": "Important dates for the upcoming spring break period."},
+                            {"title": "Science Fair Winners", "date": "Jan 5, 2026", "excerpt": "Congratulations to all our talented science fair participants!"}
+                        ]
+                    }
+                ),
+                ComponentData(
+                    id="comp-4",
+                    type="gallery",
+                    order=3,
+                    props={
+                        "title": "Life at Sunshine Elementary",
+                        "images": [
+                            "https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=2132&auto=format&fit=crop",
+                            "https://images.unsplash.com/photo-1427504494785-3a9ca28497b1?q=80&w=2070&auto=format&fit=crop",
+                            "https://images.unsplash.com/photo-1592280771884-f25f2b8423f5?q=80&w=1974&auto=format&fit=crop",
+                            "https://images.unsplash.com/photo-1564981797816-1043664bf78d?q=80&w=1974&auto=format&fit=crop"
+                        ]
+                    }
+                ),
+                ComponentData(
+                    id="comp-5",
+                    type="contact",
+                    order=4,
+                    props={
+                        "title": "Get in Touch",
+                        "address": "123 Sunshine Lane, Happy Valley, HV 12345",
+                        "phone": "(555) 123-4567",
+                        "email": "info@sunshine-elementary.edu",
+                        "showMap": True
+                    }
+                )
+            ]
+        )
+        page_doc = page.model_dump()
+        page_doc['created_at'] = page_doc['created_at'].isoformat()
+        page_doc['updated_at'] = page_doc['updated_at'].isoformat()
+        # Convert components to JSON for PostgreSQL
+        page_doc['components'] = json.dumps([c.model_dump() for c in page.components])
+        supabase.table('pages').insert(page_doc).execute()
 
-    return {"message": "Demo data seeded successfully", "school_id": school.id, "page_id": page.id}
+        return {"message": "Demo data seeded successfully", "school_id": school.id, "page_id": page.id}
+    except Exception as e:
+        log_error(f"Error seeding data: {e}", e)
+        raise HTTPException(status_code=500, detail=f"Failed to seed data: {str(e)}")
 
 # ============ ROOT ============
 
@@ -742,7 +583,9 @@ class LoggingMiddleware(BaseHTTPMiddleware):
 app.add_middleware(LoggingMiddleware)
 
 log_info("Adding CORS middleware...")
-cors_origins = os.environ.get('CORS_ORIGINS', '*').split(',')
+# Get frontend URL from environment, fallback to wildcard
+frontend_url = os.environ.get('FRONTEND_URL', '*')
+cors_origins = [frontend_url] if frontend_url != '*' else ['*']
 log_info(f"CORS origins: {cors_origins}")
 app.add_middleware(
     CORSMiddleware,
@@ -756,6 +599,3 @@ log_info("✓ CORS middleware added")
 log_info("=" * 60)
 log_info("FastAPI backend server initialized successfully!")
 log_info("=" * 60)
-
-# Supabase client doesn't need explicit shutdown
-# Connection is managed by the client library

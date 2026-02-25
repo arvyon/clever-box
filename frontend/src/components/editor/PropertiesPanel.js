@@ -44,11 +44,11 @@ const ImageUpload = ({ value, onChange, label }) => {
     setUploading(true);
     try {
       const result = await uploadImage(file);
-      const backendUrl = process.env.REACT_APP_BACKEND_URL;
-      onChange(`${backendUrl}${result.url}`);
+      // result.url is already the full public URL from Supabase Storage
+      onChange(result.url);
       toast.success('Image uploaded!');
     } catch (err) {
-      toast.error('Failed to upload image');
+      toast.error(err.message || 'Failed to upload image');
     } finally {
       setUploading(false);
     }

@@ -1,6 +1,7 @@
 import axios from 'axios';
+import { supabase } from './supabase';
 
-// Use relative URL for production (same domain), or env var, or localhost for dev
+// Backend URL for custom endpoints (templates, themes, seed, upload)
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:8000');
 const API_BASE = BACKEND_URL ? `${BACKEND_URL}/api` : '/api';
 
@@ -11,7 +12,7 @@ const api = axios.create({
   },
 });
 
-// Add auth token to requests
+// Add auth token to requests (for custom endpoints)
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('cms_token');
   if (token) {
@@ -31,52 +32,166 @@ export const getCurrentUser = async () => {
   return response.data;
 };
 
-// Schools
+// Schools - Using Supabase Data API
 export const getSchools = async () => {
-  const response = await api.get('/schools');
-  return response.data;
+  const { data, error } = await supabase
+    .from('schools')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(100);
+  
+  if (error) throw error;
+  return data || [];
 };
 
 export const getSchool = async (id) => {
-  const response = await api.get(`/schools/${id}`);
-  return response.data;
+  const { data, error } = await supabase
+    .from('schools')
+    .select('*')
+    .eq('id', id)
+    .single();
+  
+  if (error) throw error;
+  return data;
 };
 
-export const createSchool = async (data) => {
-  const response = await api.post('/schools', data);
-  return response.data;
+export const createSchool = async (schoolData) => {
+  const { data, error } = await supabase
+    .from('schools')
+    .insert(schoolData)
+    .select()
+    .single();
+  
+  if (error) throw error;
+  return data;
+};
+
+export const updateSchool = async (id, schoolData) => {
+  const { data, error } = await supabase
+    .from('schools')
+    .update(schoolData)
+    .eq('id', id)
+    .select()
+    .single();
+  
+  if (error) throw error;
+  return data;
 };
 
 export const deleteSchool = async (id) => {
-  const response = await api.delete(`/schools/${id}`);
-  return response.data;
+  const { error } = await supabase
+    .from('schools')
+    .delete()
+    .eq('id', id);
+  
+  if (error) throw error;
+  return { message: 'School deleted' };
 };
 
-// Pages
+// Pages - Using Supabase Data API
 export const getPages = async (schoolId) => {
-  const params = schoolId ? { school_id: schoolId } : {};
-  const response = await api.get('/pages', { params });
-  return response.data;
+  let query = supabase
+    .from('pages')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(100);
+  
+  if (schoolId) {
+    query = query.eq('school_id', schoolId);
+  }
+  
+  const { data, error } = await query;
+  
+  if (error) throw error;
+  
+  // Parse components from JSONB if it's a string
+  return (data || []).map(page => ({
+    ...page,
+    components: typeof page.components === 'string' 
+      ? JSON.parse(page.components) 
+      : page.components
+  }));
 };
 
 export const getPage = async (id) => {
-  const response = await api.get(`/pages/${id}`);
-  return response.data;
+  const { data, error } = await supabase
+    .from('pages')
+    .select('*')
+    .eq('id', id)
+    .single();
+  
+  if (error) throw error;
+  
+  // Parse components from JSONB if it's a string
+  return {
+    ...data,
+    components: typeof data.components === 'string' 
+      ? JSON.parse(data.components) 
+      : data.components
+  };
 };
 
-export const createPage = async (data) => {
-  const response = await api.post('/pages', data);
-  return response.data;
+export const createPage = async (pageData) => {
+  // Convert components array to JSON string for JSONB storage
+  const pageDataWithJson = {
+    ...pageData,
+    components: typeof pageData.components === 'string' 
+      ? pageData.components 
+      : JSON.stringify(pageData.components || [])
+  };
+  
+  const { data, error } = await supabase
+    .from('pages')
+    .insert(pageDataWithJson)
+    .select()
+    .single();
+  
+  if (error) throw error;
+  
+  // Parse components back from JSONB
+  return {
+    ...data,
+    components: typeof data.components === 'string' 
+      ? JSON.parse(data.components) 
+      : data.components
+  };
 };
 
-export const updatePage = async (id, data) => {
-  const response = await api.put(`/pages/${id}`, data);
-  return response.data;
+export const updatePage = async (id, pageData) => {
+  // Convert components array to JSON string if present
+  const updateData = { ...pageData };
+  if (updateData.components !== undefined) {
+    updateData.components = typeof updateData.components === 'string' 
+      ? updateData.components 
+      : JSON.stringify(updateData.components);
+  }
+  
+  const { data, error } = await supabase
+    .from('pages')
+    .update(updateData)
+    .eq('id', id)
+    .select()
+    .single();
+  
+  if (error) throw error;
+  
+  // Parse components back from JSONB
+  return {
+    ...data,
+    components: typeof data.components === 'string' 
+      ? JSON.parse(data.components) 
+      : data.components
+  };
 };
 
 export const deletePage = async (id) => {
-  const response = await api.delete(`/pages/${id}`);
-  return response.data;
+  const { error } = await supabase
+    .from('pages')
+    .delete()
+    .eq('id', id);
+  
+  if (error) throw error;
+  return { message: 'Page deleted' };
 };
 
 // Templates
@@ -92,18 +207,57 @@ export const getThemes = async () => {
 };
 
 export const updateSchoolTheme = async (schoolId, themeData) => {
-  const response = await api.put(`/schools/${schoolId}/theme`, themeData);
-  return response.data;
+  // Update theme using Supabase
+  const updateData = {
+    theme: themeData.theme || 'default',
+    primary_color: themeData.primary_color || '#1D4ED8',
+    secondary_color: themeData.secondary_color || '#FBBF24'
+  };
+  
+  const { data, error } = await supabase
+    .from('schools')
+    .update(updateData)
+    .eq('id', schoolId)
+    .select()
+    .single();
+  
+  if (error) throw error;
+  return data;
 };
 
-// Image Upload
+// Image Upload - Using Supabase Storage
 export const uploadImage = async (file) => {
-  const formData = new FormData();
-  formData.append('file', file);
-  const response = await api.post('/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  });
-  return response.data;
+  // Validate file type
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  if (!allowedTypes.includes(file.type)) {
+    throw new Error('Invalid file type. Only JPEG, PNG, GIF, WebP allowed.');
+  }
+  
+  // Generate unique filename
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+  const filePath = `uploads/${fileName}`;
+  
+  // Upload to Supabase Storage
+  const { data, error } = await supabase.storage
+    .from('uploads')
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false
+    });
+  
+  if (error) throw error;
+  
+  // Get public URL
+  const { data: { publicUrl } } = supabase.storage
+    .from('uploads')
+    .getPublicUrl(filePath);
+  
+  return {
+    url: publicUrl,
+    filename: fileName,
+    path: filePath
+  };
 };
 
 // Seed

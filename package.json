@@ -12,7 +12,7 @@
     "install:all": "npm install && cd frontend && npm install --legacy-peer-deps && cd ../backend && pip install -r requirements.txt",
     "install": "npm install && cd frontend && npm install --legacy-peer-deps",
     "build": "cd frontend && npm run build",
-    "build:api": "echo 'API functions are deployed automatically by Vercel'",
+    "build:backend": "cd backend && pip install -r requirements.txt",
     "test": "cd frontend && npm test"
   },
   "devDependencies": {
